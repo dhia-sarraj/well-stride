@@ -1,0 +1,207 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model auth_identities {
+  id               String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  user_id          String   @db.Uuid
+  provider         String   @db.VarChar(50)
+  provider_user_id String   @db.VarChar(255)
+  created_at       DateTime @default(now()) @db.Timestamptz(6)
+  users            users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([provider, provider_user_id])
+  @@index([user_id], map: "ix_auth_identities_user")
+}
+
+model breather_session {
+  id               String       @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  user_id          String       @db.Uuid
+  started_at       DateTime     @db.Timestamptz(6)
+  pattern          pattern_enum
+  duration_seconds Int
+  completed        Boolean      @default(false)
+  completed_at     DateTime?    @db.Timestamptz(6)
+  created_at       DateTime     @default(now()) @db.Timestamptz(6)
+  users            users        @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([user_id, started_at(sort: Desc)], map: "ix_breather_sessions_user_started")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model export_requests {
+  id           String             @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  user_id      String             @db.Uuid
+  status       export_status_enum @default(Pending)
+  format       String             @default("json") @db.VarChar(10)
+  file_url     String?
+  expires_at   DateTime?          @db.Timestamptz(6)
+  created_at   DateTime           @default(now()) @db.Timestamptz(6)
+  completed_at DateTime?          @db.Timestamptz(6)
+  users        users              @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([user_id, status], map: "ix_export_requests_user_status")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model mood_entries {
+  id                String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  user_id           String    @db.Uuid
+  timestamp         DateTime  @db.Timestamptz(6)
+  emoji             mood_enum
+  mood_score        Int       @db.SmallInt
+  note              String?
+  contextual_prompt String?
+  steps_at_time     Int?
+  created_at        DateTime  @default(now()) @db.Timestamptz(6)
+  users             users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model notification_queue {
+  id            String                   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  user_id       String                   @db.Uuid
+  type          notification_enum
+  title         String?                  @db.VarChar(200)
+  body          String?
+  scheduled_for DateTime                 @db.Timestamptz(6)
+  sent_at       DateTime?                @db.Timestamptz(6)
+  status        notification_status_enum @default(Pending)
+  created_at    DateTime                 @default(now()) @db.Timestamptz(6)
+  users         users                    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model quotes {
+  id                   String                 @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  text                 String
+  author               String?                @db.VarChar(200)
+  category             String?                @db.VarChar(64)
+  created_at           DateTime               @default(now()) @db.Timestamptz(6)
+  user_favorite_quotes user_favorite_quotes[]
+}
+
+model refresh_tokens {
+  id         String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  user_id    String   @db.Uuid
+  token_hash String   @unique @db.Char(64)
+  expires_at DateTime @db.Timestamptz(6)
+  revoked    Boolean  @default(false)
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  users      users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model step_summaries {
+  id                 String           @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  user_id            String           @db.Uuid
+  date               DateTime         @db.Date
+  step_count         Int              @default(0)
+  goal               Int
+  distance_meters    Decimal?         @db.Decimal(10, 2)
+  active_minutes     Int?
+  stairs_climbed     Int?
+  calories_estimated Int?
+  source             step_source_enum @default(Merged)
+  synced_at          DateTime         @default(now()) @db.Timestamptz(6)
+  created_at         DateTime         @default(now()) @db.Timestamptz(6)
+  users              users            @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([user_id, date])
+  @@index([user_id, date(sort: Desc)], map: "ix_step_summaries_user_date")
+}
+
+model user_favorite_quotes {
+  user_id      String   @db.Uuid
+  quote_id     String   @db.Uuid
+  favorited_at DateTime @default(now()) @db.Timestamptz(6)
+  quotes       quotes   @relation(fields: [quote_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users        users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([user_id, quote_id])
+}
+
+model user_profiles {
+  user_id    String       @id @db.Uuid
+  username   String?      @db.VarChar(100)
+  photo_url  String?
+  age        Int?         @db.SmallInt
+  gender     gender_enum?
+  height_cm  Decimal?     @db.Decimal(6, 2)
+  weight_kg  Decimal?     @db.Decimal(6, 2)
+  created_at DateTime     @default(now()) @db.Timestamptz(6)
+  users      users        @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([username], map: "ix_user_profiles_username")
+}
+
+model users {
+  id                   String                 @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  email                String?                @unique @db.VarChar(255)
+  email_verified       Boolean                @default(false)
+  password_hash        String?                @db.VarChar(255)
+  created_at           DateTime               @default(now()) @db.Timestamptz(6)
+  last_login           DateTime?              @db.Timestamptz(6)
+  deleted_at           DateTime?              @db.Timestamptz(6)
+  auth_identities      auth_identities[]
+  breather_session     breather_session[]
+  export_requests      export_requests[]
+  mood_entries         mood_entries[]
+  notification_queue   notification_queue[]
+  refresh_tokens       refresh_tokens[]
+  step_summaries       step_summaries[]
+  user_favorite_quotes user_favorite_quotes[]
+  user_profiles        user_profiles?
+
+  @@index([email], map: "ix_users_email")
+}
+
+enum export_status_enum {
+  Pending
+  Processing
+  Completed
+  Failed
+}
+
+enum gender_enum {
+  Male
+  Female
+}
+
+enum mood_enum {
+  Sad
+  Meh
+  Okay
+  Happy
+  Awesome
+}
+
+enum notification_enum {
+  Progress
+  Motivational
+  Quote
+  Reminder
+}
+
+enum notification_status_enum {
+  Pending
+  Sent
+  Failed
+  Cancelled
+}
+
+enum pattern_enum {
+  Box
+  Relaxing
+  Energizing
+}
+
+enum step_source_enum {
+  Healthkit
+  Googlefit
+  Manual
+  Merged
+}
