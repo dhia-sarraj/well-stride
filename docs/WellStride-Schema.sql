@@ -12,9 +12,11 @@ CREATE TYPE export_status_enum AS ENUM ('Pending', 'Processing', 'Completed', 'F
 -- Users
 CREATE TABLE users (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    username VARCHAR(100),
     email VARCHAR(255) UNIQUE,
     email_verified BOOLEAN NOT NULL DEFAULT FALSE,
     password_hash VARCHAR(255),              -- nullable for OAuth users
+    provider VARCHAR(50) NOT NULL CHECK (provider IN ('email', 'google')),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     last_login TIMESTAMPTZ,
     deleted_at TIMESTAMPTZ                  -- soft-delete (NULL = active)
@@ -26,7 +28,6 @@ CREATE INDEX ix_users_deleted_at ON users(deleted_at) WHERE deleted_at IS NULL;
 -- User Profiles
 CREATE TABLE user_profiles (
     user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-    username VARCHAR(100),
     photo_url TEXT,
     age SMALLINT,
     gender gender_enum,
@@ -36,18 +37,6 @@ CREATE TABLE user_profiles (
 );
 
 CREATE INDEX ix_user_profiles_username ON user_profiles(username);
-
--- Auth Indentities (OAuth providers: Email/Google)
-CREATE TABLE auth_identities(
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  provider VARCHAR(50) NOT NULL CHECK (provider IN ('email', 'google')),
-  provider_user_id VARCHAR(255) NOT NULL,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  UNIQUE (provider, provider_user_id)
-);
-
-CREATE INDEX ix_auth_identities_user ON auth_identities(user_id);
 
 -- Refresh Token
 CREATE TABLE refresh_tokens (

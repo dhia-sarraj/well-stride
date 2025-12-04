@@ -1,23 +1,11 @@
 generator client {
   provider = "prisma-client"
   output   = "../generated/prisma"
+  moduleFormat = "cjs"
 }
 
 datasource db {
   provider = "postgresql"
-}
-
-/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
-model auth_identities {
-  id               String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  user_id          String   @db.Uuid
-  provider         String   @db.VarChar(50)
-  provider_user_id String   @db.VarChar(255)
-  created_at       DateTime @default(now()) @db.Timestamptz(6)
-  users            users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-
-  @@unique([provider, provider_user_id])
-  @@index([user_id], map: "ix_auth_identities_user")
 }
 
 model breather_session {
@@ -126,7 +114,6 @@ model user_favorite_quotes {
 
 model user_profiles {
   user_id    String       @id @db.Uuid
-  username   String?      @db.VarChar(100)
   photo_url  String?
   age        Int?         @db.SmallInt
   gender     gender_enum?
@@ -134,8 +121,6 @@ model user_profiles {
   weight_kg  Decimal?     @db.Decimal(6, 2)
   created_at DateTime     @default(now()) @db.Timestamptz(6)
   users      users        @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-
-  @@index([username], map: "ix_user_profiles_username")
 }
 
 model users {
@@ -146,7 +131,8 @@ model users {
   created_at           DateTime               @default(now()) @db.Timestamptz(6)
   last_login           DateTime?              @db.Timestamptz(6)
   deleted_at           DateTime?              @db.Timestamptz(6)
-  auth_identities      auth_identities[]
+  username             String                 @db.VarChar(100)
+  provider             String                 @db.VarChar(50)
   breather_session     breather_session[]
   export_requests      export_requests[]
   mood_entries         mood_entries[]
