@@ -8,22 +8,23 @@ CREATE TYPE pattern_enum AS ENUM ('Box', 'Relaxing', 'Energizing');
 CREATE TYPE notification_enum AS ENUM ('Progress', 'Motivational', 'Quote', 'Reminder');
 CREATE TYPE notification_status_enum AS ENUM ('Pending', 'Sent', 'Failed', 'Cancelled');
 CREATE TYPE export_status_enum AS ENUM ('Pending', 'Processing', 'Completed', 'Failed');
+CREATE TYPE user_provider AS ENUM ('Email', 'Google');
+CREATE TYPE export_format AS ENUM ('JSON', 'CSV');
+CREATE TYPE mood_score_enum AS ENUM ('1','2','3','4','5');
 
 -- Users
 CREATE TABLE users (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    username VARCHAR(100),
-    email VARCHAR(255) UNIQUE,
+    username VARCHAR(100) NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
     email_verified BOOLEAN NOT NULL DEFAULT FALSE,
     password_hash VARCHAR(255),              -- nullable for OAuth users
-    provider VARCHAR(50) NOT NULL CHECK (provider IN ('email', 'google')),
+    provider user_provider NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    last_login TIMESTAMPTZ,
-    deleted_at TIMESTAMPTZ                  -- soft-delete (NULL = active)
+    last_login TIMESTAMPTZ
 );
 
 CREATE INDEX ix_users_email ON users(email);
-CREATE INDEX ix_users_deleted_at ON users(deleted_at) WHERE deleted_at IS NULL;
 
 -- User Profiles
 CREATE TABLE user_profiles (
@@ -35,8 +36,6 @@ CREATE TABLE user_profiles (
     weight_kg NUMERIC(6,2),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-
-CREATE INDEX ix_user_profiles_username ON user_profiles(username);
 
 -- Refresh Token
 CREATE TABLE refresh_tokens (
@@ -76,7 +75,7 @@ CREATE TABLE mood_entries (
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     timestamp TIMESTAMPTZ NOT NULL,
     emoji mood_enum NOT NULL, 
-    mood_score SMALLINT NOT NULL CHECK (mood_score BETWEEN 1 AND 5),
+    mood_score mood_enum NOT NULL,
     note TEXT,
     contextual_prompt TEXT,
     steps_at_time INTEGER,
@@ -152,7 +151,7 @@ CREATE TABLE export_requests (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     status export_status_enum NOT NULL DEFAULT 'Pending',
-    format VARCHAR(10) NOT NULL DEFAULT 'json' CHECK (format IN ('json', 'csv')),
+    format export_format,
     file_url TEXT,
     expires_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
