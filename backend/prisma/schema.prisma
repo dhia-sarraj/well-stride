@@ -76,7 +76,7 @@ model quotes {
 model refresh_tokens {
   id         String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   user_id    String   @db.Uuid
-  token_hash String   @unique @db.Char(64)
+  token_hash String   @unique
   expires_at DateTime @db.Timestamptz(6)
   revoked    Boolean  @default(false)
   created_at DateTime @default(now()) @db.Timestamptz(6)
@@ -136,12 +136,26 @@ model users {
   export_requests      export_requests[]
   mood_entries         mood_entries[]
   notification_queue   notification_queue[]
+  password_reset_token password_reset_token[]
   refresh_tokens       refresh_tokens[]
   step_summaries       step_summaries[]
   user_favorite_quotes user_favorite_quotes[]
   user_profiles        user_profiles?
 
   @@index([email], map: "ix_users_email")
+}
+
+model password_reset_token {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id    String   @db.Uuid
+  token_hash String   @unique
+  expires_at DateTime @db.Timestamptz(6)
+  used       Boolean  @default(false)
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  users      users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([token_hash], map: "idx_pwdreset_token_hash")
+  @@index([user_id], map: "idx_pwdreset_user")
 }
 
 enum export_status_enum {
@@ -197,11 +211,11 @@ enum export_format {
 }
 
 enum mood_score_enum {
-  ONE @map("1")
-  TWO @map("2")
+  ONE   @map("1")
+  TWO   @map("2")
   THREE @map("3")
-  FOUR @map("4")
-  FIVE @map("5")
+  FOUR  @map("4")
+  FIVE  @map("5")
 }
 
 enum user_provider {
