@@ -1,14 +1,26 @@
-import { Injectable } from '@nestjs/common';
+import {
+  Injectable,
+  InternalServerErrorException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { PrismaService } from 'src/modules/prisma/prisma.service';
-import { users as UserModel } from 'generated/prisma/client';
+import { User } from './entities/user.entity';
 
 @Injectable()
 export class UserService {
   constructor(private prisma: PrismaService) {}
 
-  async remove(id: UserModel['id']): Promise<void> {
-    await this.prisma.users.delete({
-      where: { id },
-    });
+  async remove(id: string, user: User) {
+    if (id !== user.id) throw new UnauthorizedException('Unauthorized');
+
+    try {
+      await this.prisma.users.delete({
+        where: { id },
+      });
+
+      return { message: 'User deleted' };
+    } catch (error) {
+      throw new InternalServerErrorException('Server error');
+    }
   }
 }
