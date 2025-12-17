@@ -1,21 +1,14 @@
-import {
-  Injectable,
-  InternalServerErrorException,
-  UnauthorizedException,
-} from '@nestjs/common';
+import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import { PrismaService } from 'src/modules/prisma/prisma.service';
-import { User } from './entities/user.entity';
 
 @Injectable()
 export class UserService {
   constructor(private prisma: PrismaService) {}
 
-  async remove(id: string, user: User) {
-    if (id !== user.id) throw new UnauthorizedException('Unauthorized');
-
+  async remove(userId: string) {
     try {
       await this.prisma.users.delete({
-        where: { id },
+        where: { id: userId },
       });
 
       return { message: 'User deleted' };

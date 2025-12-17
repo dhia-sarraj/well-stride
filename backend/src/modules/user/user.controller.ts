@@ -1,4 +1,4 @@
-import { Controller, Param, Delete, UseGuards } from '@nestjs/common';
+import { Controller, Delete, UseGuards } from '@nestjs/common';
 import { UserService } from './user.service';
 import {
   ApiBearerAuth,
@@ -7,7 +7,6 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import { users as UserModel } from '../../../generated/prisma/client';
 import { User } from './entities/user.entity';
 import { AuthGuard } from '@nestjs/passport';
 import { GetUser } from '../auth/decorators/get-user.decorator';
@@ -18,11 +17,10 @@ import { GetUser } from '../auth/decorators/get-user.decorator';
 export class UserController {
   constructor(private readonly userService: UserService) {}
 
-  @Delete(':id')
+  @Delete('me')
   @ApiOperation({
-    summary: 'DELETE USER BY ID',
-    description:
-      'Private endpoint to delete a user by ID. The authenticated user can only delete their own account.',
+    summary: 'DELETE CURRENT USER',
+    description: 'Delete the authenticated user account',
   })
   @ApiOkResponse({
     content: { 'application/json': { example: { message: 'User deleted' } } },
@@ -31,7 +29,7 @@ export class UserController {
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 500, description: 'Server error' })
   @UseGuards(AuthGuard('jwt'))
-  remove(@Param('id') id: UserModel['id'], @GetUser() user: User) {
-    return this.userService.remove(id, user);
+  remove(@GetUser() user: User) {
+    return this.userService.remove(user.id);
   }
 }
