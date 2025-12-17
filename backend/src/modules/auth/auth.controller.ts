@@ -1,12 +1,4 @@
-import {
-  Body,
-  Controller,
-  Get,
-  Patch,
-  Post,
-  UnauthorizedException,
-  UseGuards,
-} from '@nestjs/common';
+import { Body, Controller, Patch, Post, UseGuards } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import {
   ApiBearerAuth,
@@ -20,12 +12,11 @@ import { LoginUserDto } from './dto/requests/login-user.dto';
 import { GetUser } from './decorators/get-user.decorator';
 import { AuthGuard } from '@nestjs/passport';
 import { User } from '../user/entities/user.entity';
-import { LogoutResponse } from './dto/responses/logout-response.dto';
 import { RefreshTokenDto } from './dto/requests/refresh-token.dto';
 import { ForgotPasswordDto } from './dto/requests/forgot-password.dto';
 import { ResetPasswordDto } from './dto/requests/reset-password.dto';
-import { PasswordResponse } from './dto/responses/password-response.dto';
 import { changePasswordDto } from './dto/requests/change-password.dto';
+import { SuccessResponse } from './dto/responses/success-response.dto';
 
 @ApiTags('Auth')
 @Controller('api/auth')
@@ -96,7 +87,7 @@ export class AuthController {
   @ApiResponse({
     status: 200,
     description: 'Loggout Succeeded',
-    type: LogoutResponse,
+    type: SuccessResponse,
   })
   @ApiResponse({
     status: 400,
@@ -134,13 +125,13 @@ export class AuthController {
   // POST: Reset-Password
   @Post('password/reset')
   @ApiOperation({
-    summary: 'Reset Password',
+    summary: 'RESET PASSWORD',
     description: 'Resets the user password using a valid reset token.',
   })
   @ApiResponse({
     status: 200,
     description: 'Password has been successfully reset.',
-    type: PasswordResponse,
+    type: SuccessResponse,
   })
   @ApiResponse({
     status: 400,
@@ -157,14 +148,14 @@ export class AuthController {
   // PATCH: Change-Password
   @Patch('password/change')
   @ApiOperation({
-    summary: 'Change Password',
+    summary: 'CHANGE PASSWORD',
     description: 'Allows a logged-in user to change their current password.',
   })
   @ApiBearerAuth()
   @ApiResponse({
     status: 200,
     description: 'Password changed successfully.',
-    type: PasswordResponse,
+    type: SuccessResponse,
   })
   @ApiResponse({
     status: 400,

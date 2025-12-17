@@ -12,9 +12,7 @@ import { User } from '../user/entities/user.entity';
 import * as bcrypt from 'bcryptjs';
 import { randomBytes } from 'node:crypto';
 import { LoginResponse } from './dto/responses/login-response.dto';
-import { LogoutResponse } from './dto/responses/logout-response.dto';
-import { ResetPasswordDto } from './dto/requests/reset-password.dto';
-import { PasswordResponse } from './dto/responses/password-response.dto';
+import { SuccessResponse } from './dto/responses/success-response.dto';
 
 @Injectable()
 export class AuthService {
@@ -216,7 +214,7 @@ export class AuthService {
     };
   }
 
-  async logout(user: User, refreshToken?: string): Promise<LogoutResponse> {
+  async logout(user: User, refreshToken?: string): Promise<SuccessResponse> {
     if (refreshToken) {
       const matched = await this.findRefreshTokenRecord(refreshToken);
       if (matched) {
@@ -233,7 +231,7 @@ export class AuthService {
     return { message: 'Logged out successfully' };
   }
 
-  async requestPasswordReset(email: string): Promise<PasswordResponse> {
+  async requestPasswordReset(email: string): Promise<SuccessResponse> {
     if (!email) {
       throw new BadRequestException(
         'Bad Request: The email is missing or invalid.',
@@ -266,7 +264,7 @@ export class AuthService {
   async resetPassword(
     token: string,
     newPassword: string,
-  ): Promise<PasswordResponse> {
+  ): Promise<SuccessResponse> {
     const userTokens = await this.prisma.password_reset_token.findMany({
       where: { used: false },
       orderBy: { created_at: 'desc' },
@@ -317,7 +315,7 @@ export class AuthService {
     userId: string,
     currentPassword: string,
     newPassword: string,
-  ): Promise<PasswordResponse> {
+  ): Promise<SuccessResponse> {
     const dbUser = await this.prisma.users.findUnique({
       where: { id: userId },
     });

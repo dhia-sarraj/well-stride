@@ -1,4 +1,4 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsEnum,
   IsInt,
@@ -11,7 +11,7 @@ import {
 import { gender_enum } from 'generated/prisma/enums';
 
 export class CreateProfileDto {
-  @ApiProperty({
+  @ApiPropertyOptional({
     description: 'User Photo',
     type: 'string',
   })
@@ -19,9 +19,10 @@ export class CreateProfileDto {
   @IsString()
   photoUrl?: string;
 
-  @ApiProperty({
+  @ApiPropertyOptional({
     description: 'User Age',
     type: 'number',
+    example: 20,
   })
   @IsOptional()
   @IsInt()
@@ -29,25 +30,28 @@ export class CreateProfileDto {
   @Max(130)
   age?: number;
 
-  @ApiProperty({
+  @ApiPropertyOptional({
     description: 'User Gender',
     enum: gender_enum,
+    example: gender_enum.Male,
   })
   @IsOptional()
   @IsEnum(gender_enum)
   gender?: gender_enum;
 
-  @ApiProperty({
+  @ApiPropertyOptional({
     description: 'User Height in cm',
     type: 'number',
+    example: 180,
   })
   @IsOptional()
   @IsNumber()
   height?: number;
 
-  @ApiProperty({
+  @ApiPropertyOptional({
     description: 'User Weight in kg',
     type: 'number',
+    example: 70,
   })
   @IsOptional()
   @IsNumber()

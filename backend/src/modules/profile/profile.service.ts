@@ -1,7 +1,4 @@
-import {
-  Injectable,
-  InternalServerErrorException,
-} from '@nestjs/common';
+import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ProfileResponse } from './dto/responses/profile-response.dto';
 import { CreateProfileDto } from './dto/requests/create-profile.dto';
