@@ -86,7 +86,6 @@ CREATE INDEX ix_step_summaries_user_date ON step_summaries(user_id, date DESC);
 CREATE TABLE mood_entries (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    timestamp TIMESTAMPTZ NOT NULL,
     emoji mood_enum NOT NULL, 
     mood_score mood_enum NOT NULL,
     note TEXT,

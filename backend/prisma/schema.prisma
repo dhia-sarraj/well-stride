@@ -41,7 +41,6 @@ model export_requests {
 model mood_entries {
   id                String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   user_id           String    @db.Uuid
-  timestamp         DateTime  @db.Timestamptz(6)
   emoji             mood_enum
   mood_score        mood_enum
   note              String?
