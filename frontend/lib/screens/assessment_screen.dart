@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:wellstride/services/api_service.dart';
 
 class AssessmentScreen extends StatefulWidget {
   @override
@@ -12,9 +13,12 @@ class _AssessmentScreenState extends State<AssessmentScreen> {
   final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _weightController = TextEditingController();
   final FocusNode _usernameFocusNode = FocusNode();
+  final ApiService _apiService = ApiService();
 
   int _currentPage = 0;
   final int _totalPages = 6;
+  bool _isLoading = false;
+  String? _errorMessage;
 
   // Form data
   String _username = '';
@@ -41,7 +45,6 @@ class _AssessmentScreenState extends State<AssessmentScreen> {
   }
 
   void _nextPage() {
-    // Dismiss keyboard if open
     FocusScope.of(context).unfocus();
 
     if (_currentPage < _totalPages - 1) {
@@ -64,15 +67,54 @@ class _AssessmentScreenState extends State<AssessmentScreen> {
     }
   }
 
-  void _saveAndContinue() {
-    print('Username: $_username');
-    print('Age: $_age');
-    print('Weight: $_weight $_weightUnit');
-    print('Height: $_height $_heightUnit');
-    print('Sex: $_sex');
-    print('Target Steps: $_targetSteps');
+  void _saveAndContinue() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
 
-    Navigator.pushReplacementNamed(context, '/home');
+    try {
+      // Convert weight and height to kg/cm if needed
+      double weightKg = _weightUnit == 'kg' ? _weight : _weight * 0.453592;
+      double heightCm = _heightUnit == 'cm' ? _height : _height * 30.48;
+
+      // Create profile via API
+      await _apiService.createProfile(
+        username: _username,
+        age: _age,
+        gender: _sex, // Backend uses 'gender'
+        height: heightCm,
+        weight: weightKg,
+      );
+
+      // Update step goal
+      await _apiService.updateStepGoal(_targetSteps);
+
+      // Navigate to home
+      if (mounted) {
+        Navigator.pushReplacementNamed(context, '/home');
+      }
+    } catch (e) {
+      setState(() {
+        _errorMessage = e.toString().replaceAll('Exception: ', '');
+        _isLoading = false;
+      });
+
+      // Show error dialog
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text('Error'),
+          content: Text(_errorMessage ?? 'Failed to create profile'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text('OK'),
+            ),
+          ],
+        ),
+      );
+    }
   }
 
   @override
@@ -148,7 +190,7 @@ class _AssessmentScreenState extends State<AssessmentScreen> {
               Padding(
                 padding: EdgeInsets.all(24),
                 child: ElevatedButton(
-                  onPressed: _nextPage,
+                  onPressed: _isLoading ? null : _nextPage,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.white,
                     foregroundColor: Color(0xFFC16200),
@@ -157,7 +199,16 @@ class _AssessmentScreenState extends State<AssessmentScreen> {
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                  child: Text(
+                  child: _isLoading
+                      ? SizedBox(
+                    height: 20,
+                    width: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFC16200)),
+                    ),
+                  )
+                      : Text(
                     _currentPage == _totalPages - 1 ? 'Get Started' : 'Next',
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                   ),
@@ -170,7 +221,7 @@ class _AssessmentScreenState extends State<AssessmentScreen> {
     );
   }
 
-  // USERNAME PAGE - Auto-dismiss keyboard
+  // USERNAME PAGE
   Widget _buildUsernamePage() {
     return SingleChildScrollView(
       padding: EdgeInsets.all(24),
@@ -225,7 +276,7 @@ class _AssessmentScreenState extends State<AssessmentScreen> {
     );
   }
 
-  // AGE PAGE - Scroll Wheel Picker (No keyboard)
+  // AGE PAGE
   Widget _buildAgePage() {
     return Padding(
       padding: EdgeInsets.all(24),
@@ -281,7 +332,7 @@ class _AssessmentScreenState extends State<AssessmentScreen> {
     );
   }
 
-  // WEIGHT PAGE - Fixed keyboard overflow with SingleChildScrollView
+  // WEIGHT PAGE
   Widget _buildWeightPage() {
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -372,7 +423,7 @@ class _AssessmentScreenState extends State<AssessmentScreen> {
     );
   }
 
-  // HEIGHT PAGE - Slider with Unit Toggle (No keyboard)
+  // HEIGHT PAGE
   Widget _buildHeightPage() {
     return Padding(
       padding: EdgeInsets.all(24),
@@ -450,7 +501,7 @@ class _AssessmentScreenState extends State<AssessmentScreen> {
     );
   }
 
-  // SEX PAGE - Only Male and Female
+  // SEX PAGE
   Widget _buildSexPage() {
     return Padding(
       padding: EdgeInsets.all(24),

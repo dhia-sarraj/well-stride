@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../services/api_service.dart';
 
 class SignUpScreen extends StatefulWidget {
   @override
@@ -10,10 +11,12 @@ class _SignUpScreenState extends State<SignUpScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
+  final ApiService _apiService = ApiService();
 
   bool _isPasswordVisible = false;
   bool _isConfirmPasswordVisible = false;
   bool _isLoading = false;
+  String? _errorMessage;
 
   @override
   void dispose() {
@@ -27,24 +30,82 @@ class _SignUpScreenState extends State<SignUpScreen> {
     if (_formKey.currentState!.validate()) {
       setState(() {
         _isLoading = true;
+        _errorMessage = null;
       });
 
-      // TODO: Implement Firebase authentication
-      // For now, simulate a delay
-      await Future.delayed(Duration(seconds: 2));
+      try {
+        final email = _emailController.text.trim();
+        final password = _passwordController.text;
 
-      setState(() {
-        _isLoading = false;
-      });
+        print('Starting sign up process for: $email');
 
-      // Navigate to assessment screen
-      Navigator.pushReplacementNamed(context, '/assessment');
+        // Step 1: Register user
+        await _apiService.register(
+          email: email,
+          password: password,
+          passwordConf: _confirmPasswordController.text,
+        );
+
+        print('Registration successful, attempting login...');
+
+        // Step 2: Wait a bit for backend to process (sometimes needed)
+        await Future.delayed(Duration(milliseconds: 500));
+
+        // Step 3: Login automatically
+        await _apiService.login(
+          email: email,
+          password: password,
+        );
+
+        print('Login successful, navigating to assessment...');
+
+        // Step 4: Navigate to assessment screen
+        if (mounted) {
+          Navigator.pushReplacementNamed(context, '/assessment');
+        }
+      } catch (e) {
+        print('Sign up error: $e');
+
+        String errorMsg = e.toString().replaceAll('Exception: ', '');
+
+        // If registration succeeded but login failed
+        if (errorMsg.contains('User already exists')) {
+          errorMsg = 'Account created! Please sign in with your email and password.';
+
+          // Show success message and navigate to sign in
+          if (mounted) {
+            showDialog(
+              context: context,
+              barrierDismissible: false,
+              builder: (context) => AlertDialog(
+                title: Text('Success!'),
+                content: Text('Your account has been created. Please sign in to continue.'),
+                actions: [
+                  ElevatedButton(
+                    onPressed: () {
+                      Navigator.of(context).pop(); // Close dialog
+                      Navigator.pushReplacementNamed(context, '/signin'); // Go to sign in
+                    },
+                    child: Text('Sign In'),
+                  ),
+                ],
+              ),
+            );
+            return; // Don't show error
+          }
+        }
+
+        setState(() {
+          _errorMessage = errorMsg;
+        });
+      } finally {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+        }
+      }
     }
-  }
-
-  void _signUpWithGoogle() async {
-    // TODO: Implement Google Sign In
-    print('Google Sign In clicked');
   }
 
   @override
@@ -68,7 +129,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
               children: [
                 SizedBox(height: 20),
 
-                // Title
                 Text(
                   'Create Account',
                   style: Theme.of(context).textTheme.headlineLarge,
@@ -82,6 +142,30 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     color: Colors.grey.shade600,
                   ),
                 ),
+
+                if (_errorMessage != null) ...[
+                  SizedBox(height: 20),
+                  Container(
+                    padding: EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.red.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.red.shade200),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.error_outline, color: Colors.red),
+                        SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            _errorMessage!,
+                            style: TextStyle(color: Colors.red.shade900),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
 
                 SizedBox(height: 40),
 
@@ -131,6 +215,14 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     if (value.length < 6) {
                       return 'Password must be at least 6 characters';
                     }
+                    // Check for at least one uppercase letter
+                    if (!value.contains(RegExp(r'[A-Z]'))) {
+                      return 'Password must contain at least one uppercase letter';
+                    }
+                    // Check for at least one digit
+                    if (!value.contains(RegExp(r'[0-9]'))) {
+                      return 'Password must contain at least one number';
+                    }
                     return null;
                   },
                 ),
@@ -166,6 +258,33 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   },
                 ),
 
+                SizedBox(height: 12),
+
+                // Password requirements hint
+                Container(
+                  padding: EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Password must contain:',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          color: Colors.blue.shade900,
+                        ),
+                      ),
+                      SizedBox(height: 4),
+                      _buildPasswordRequirement('At least 6 characters'),
+                      _buildPasswordRequirement('At least one uppercase letter'),
+                      _buildPasswordRequirement('At least one number'),
+                    ],
+                  ),
+                ),
+
                 SizedBox(height: 32),
 
                 // Sign Up Button
@@ -183,49 +302,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       : Text(
                     'Sign Up',
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                  ),
-                ),
-
-                SizedBox(height: 24),
-
-                // Divider
-                Row(
-                  children: [
-                    Expanded(child: Divider()),
-                    Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 16),
-                      child: Text(
-                        'OR',
-                        style: TextStyle(color: Colors.grey.shade600),
-                      ),
-                    ),
-                    Expanded(child: Divider()),
-                  ],
-                ),
-
-                SizedBox(height: 24),
-
-                // Google Sign Up Button
-                OutlinedButton.icon(
-                  onPressed: _signUpWithGoogle,
-                  icon: Image.asset(
-                    'appIcons/google_logo.png',
-                    height: 24,
-                    errorBuilder: (context, error, stackTrace) {
-                      return Icon(Icons.g_mobiledata, size: 24);
-                    },
-                  ),
-                  label: Text(
-                    'Sign up with Google',
-                    style: TextStyle(color: Colors.black87),
-                  ),
-                  style: OutlinedButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    padding: EdgeInsets.symmetric(vertical: 16),
-                    side: BorderSide(color: Colors.grey.shade300),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
                   ),
                 ),
 
@@ -257,6 +333,22 @@ class _SignUpScreenState extends State<SignUpScreen> {
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildPasswordRequirement(String text) {
+    return Padding(
+      padding: EdgeInsets.only(top: 2),
+      child: Row(
+        children: [
+          Icon(Icons.check_circle_outline, size: 16, color: Colors.blue.shade700),
+          SizedBox(width: 6),
+          Text(
+            text,
+            style: TextStyle(fontSize: 12, color: Colors.blue.shade900),
+          ),
+        ],
       ),
     );
   }

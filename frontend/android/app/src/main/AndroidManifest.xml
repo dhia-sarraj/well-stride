@@ -1,5 +1,7 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <application
+<manifest
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+<application
         android:label="WellStride"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
@@ -42,4 +44,12 @@
             <data android:mimeType="text/plain"/>
         </intent>
     </queries>
+
+    <!-- Health & Fitness -->
+    <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION"/>
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+
+    <!-- Screen Time -->
+    <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS"
+        tools:ignore="ProtectedPermissions"/>
 </manifest>

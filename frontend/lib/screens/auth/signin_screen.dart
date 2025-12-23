@@ -1,55 +1,111 @@
 import 'package:flutter/material.dart';
+import '../../services/api_service.dart';
 
-class SignInScreen extends StatefulWidget {
+class SignUpScreen extends StatefulWidget {
   @override
-  _SignInScreenState createState() => _SignInScreenState();
+  _SignUpScreenState createState() => _SignUpScreenState();
 }
 
-class _SignInScreenState extends State<SignInScreen> {
+class _SignUpScreenState extends State<SignUpScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
+  final ApiService _apiService = ApiService();
 
   bool _isPasswordVisible = false;
+  bool _isConfirmPasswordVisible = false;
   bool _isLoading = false;
+  String? _errorMessage;
 
   @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
+    _confirmPasswordController.dispose();
     super.dispose();
   }
 
-  void _signIn() async {
+  void _signUp() async {
     if (_formKey.currentState!.validate()) {
       setState(() {
         _isLoading = true;
+        _errorMessage = null;
       });
 
-      // TODO: Implement Firebase authentication
-      await Future.delayed(Duration(seconds: 2));
+      try {
+        final email = _emailController.text.trim();
+        final password = _passwordController.text;
 
-      setState(() {
-        _isLoading = false;
-      });
+        print('Starting sign up process for: $email');
 
-      // Navigate to home screen
-      Navigator.pushReplacementNamed(context, '/home');
+        // Step 1: Register user
+        await _apiService.register(
+          email: email,
+          password: password,
+          passwordConf: _confirmPasswordController.text,
+        );
+
+        print('Registration successful, attempting login...');
+
+        // Step 2: Wait a bit for backend to process (sometimes needed)
+        await Future.delayed(Duration(milliseconds: 500));
+
+        // Step 3: Login automatically
+        await _apiService.login(
+          email: email,
+          password: password,
+        );
+
+        print('Login successful, navigating to assessment...');
+
+        // Step 4: Navigate to assessment screen
+        if (mounted) {
+          Navigator.pushReplacementNamed(context, '/assessment');
+        }
+      } catch (e) {
+        print('Sign up error: $e');
+
+        String errorMsg = e.toString().replaceAll('Exception: ', '');
+
+        // If registration succeeded but login failed
+        if (errorMsg.contains('User already exists')) {
+          errorMsg = 'Account created! Please sign in with your email and password.';
+
+          // Show success message and navigate to sign in
+          if (mounted) {
+            showDialog(
+              context: context,
+              barrierDismissible: false,
+              builder: (context) => AlertDialog(
+                title: Text('Success!'),
+                content: Text('Your account has been created. Please sign in to continue.'),
+                actions: [
+                  ElevatedButton(
+                    onPressed: () {
+                      Navigator.of(context).pop(); // Close dialog
+                      Navigator.pushReplacementNamed(context, '/signin'); // Go to sign in
+                    },
+                    child: Text('Sign In'),
+                  ),
+                ],
+              ),
+            );
+            return; // Don't show error
+          }
+        }
+
+        setState(() {
+          _errorMessage = errorMsg;
+        });
+      } finally {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+        }
+      }
     }
-  }
-
-  void _signInWithGoogle() async {
-    // TODO: Implement Google Sign In
-    print('Google Sign In clicked');
-  }
-
-  void _forgotPassword() {
-    showDialog(
-      context: context,
-      builder: (context) => ForgotPasswordDialog(
-        emailController: _emailController,
-      ),
-    );
   }
 
   @override
@@ -73,20 +129,43 @@ class _SignInScreenState extends State<SignInScreen> {
               children: [
                 SizedBox(height: 20),
 
-                // Title
                 Text(
-                  'Welcome Back',
+                  'Create Account',
                   style: Theme.of(context).textTheme.headlineLarge,
                 ),
 
                 SizedBox(height: 8),
 
                 Text(
-                  'Sign in to continue',
+                  'Sign up to get started',
                   style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                     color: Colors.grey.shade600,
                   ),
                 ),
+
+                if (_errorMessage != null) ...[
+                  SizedBox(height: 20),
+                  Container(
+                    padding: EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.red.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.red.shade200),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.error_outline, color: Colors.red),
+                        SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            _errorMessage!,
+                            style: TextStyle(color: Colors.red.shade900),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
 
                 SizedBox(height: 40),
 
@@ -131,7 +210,49 @@ class _SignInScreenState extends State<SignInScreen> {
                   ),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
-                      return 'Please enter your password';
+                      return 'Please enter a password';
+                    }
+                    if (value.length < 6) {
+                      return 'Password must be at least 6 characters';
+                    }
+                    // Check for at least one uppercase letter
+                    if (!value.contains(RegExp(r'[A-Z]'))) {
+                      return 'Password must contain at least one uppercase letter';
+                    }
+                    // Check for at least one digit
+                    if (!value.contains(RegExp(r'[0-9]'))) {
+                      return 'Password must contain at least one number';
+                    }
+                    return null;
+                  },
+                ),
+
+                SizedBox(height: 20),
+
+                // Confirm Password Field
+                TextFormField(
+                  controller: _confirmPasswordController,
+                  obscureText: !_isConfirmPasswordVisible,
+                  decoration: InputDecoration(
+                    labelText: 'Confirm Password',
+                    prefixIcon: Icon(Icons.lock_outline),
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _isConfirmPasswordVisible ? Icons.visibility : Icons.visibility_off,
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          _isConfirmPasswordVisible = !_isConfirmPasswordVisible;
+                        });
+                      },
+                    ),
+                  ),
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Please confirm your password';
+                    }
+                    if (value != _passwordController.text) {
+                      return 'Passwords do not match';
                     }
                     return null;
                   },
@@ -139,26 +260,36 @@ class _SignInScreenState extends State<SignInScreen> {
 
                 SizedBox(height: 12),
 
-                // Forgot Password
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: TextButton(
-                    onPressed: _forgotPassword,
-                    child: Text(
-                      'Forgot Password?',
-                      style: TextStyle(
-                        color: Theme.of(context).primaryColor,
-                        fontWeight: FontWeight.w500,
+                // Password requirements hint
+                Container(
+                  padding: EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Password must contain:',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          color: Colors.blue.shade900,
+                        ),
                       ),
-                    ),
+                      SizedBox(height: 4),
+                      _buildPasswordRequirement('At least 6 characters'),
+                      _buildPasswordRequirement('At least one uppercase letter'),
+                      _buildPasswordRequirement('At least one number'),
+                    ],
                   ),
                 ),
 
-                SizedBox(height: 24),
+                SizedBox(height: 32),
 
-                // Sign In Button
+                // Sign Up Button
                 ElevatedButton(
-                  onPressed: _isLoading ? null : _signIn,
+                  onPressed: _isLoading ? null : _signUp,
                   child: _isLoading
                       ? SizedBox(
                     height: 20,
@@ -169,70 +300,27 @@ class _SignInScreenState extends State<SignInScreen> {
                     ),
                   )
                       : Text(
-                    'Sign In',
+                    'Sign Up',
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                   ),
                 ),
 
                 SizedBox(height: 24),
 
-                // Divider
-                Row(
-                  children: [
-                    Expanded(child: Divider()),
-                    Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 16),
-                      child: Text(
-                        'OR',
-                        style: TextStyle(color: Colors.grey.shade600),
-                      ),
-                    ),
-                    Expanded(child: Divider()),
-                  ],
-                ),
-
-                SizedBox(height: 24),
-
-                // Google Sign In Button
-                OutlinedButton.icon(
-                  onPressed: _signInWithGoogle,
-                  icon: Image.asset(
-                    'appIcons/google_logo.png',
-                    height: 24,
-                    errorBuilder: (context, error, stackTrace) {
-                      return Icon(Icons.g_mobiledata, size: 24);
-                    },
-                  ),
-                  label: Text(
-                    'Sign in with Google',
-                    style: TextStyle(color: Colors.black87),
-                  ),
-                  style: OutlinedButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    padding: EdgeInsets.symmetric(vertical: 16),
-                    side: BorderSide(color: Colors.grey.shade300),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                ),
-
-                SizedBox(height: 24),
-
-                // Sign Up Link
+                // Sign In Link
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
-                      "Don't have an account? ",
+                      'Already have an account? ',
                       style: Theme.of(context).textTheme.bodyMedium,
                     ),
                     TextButton(
                       onPressed: () {
-                        Navigator.pushReplacementNamed(context, '/signup');
+                        Navigator.pushReplacementNamed(context, '/signin');
                       },
                       child: Text(
-                        'Sign Up',
+                        'Sign In',
                         style: TextStyle(
                           color: Theme.of(context).primaryColor,
                           fontWeight: FontWeight.w600,
@@ -248,103 +336,20 @@ class _SignInScreenState extends State<SignInScreen> {
       ),
     );
   }
-}
 
-// Forgot Password Dialog
-class ForgotPasswordDialog extends StatefulWidget {
-  final TextEditingController emailController;
-
-  ForgotPasswordDialog({required this.emailController});
-
-  @override
-  _ForgotPasswordDialogState createState() => _ForgotPasswordDialogState();
-}
-
-class _ForgotPasswordDialogState extends State<ForgotPasswordDialog> {
-  bool _emailSent = false;
-  String _maskedEmail = '';
-
-  void _sendResetEmail() {
-    String email = widget.emailController.text;
-
-    if (email.isEmpty || !email.contains('@')) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Please enter a valid email')),
-      );
-      return;
-    }
-
-    // Mask email: show first 3 chars and domain
-    List<String> parts = email.split('@');
-    String username = parts[0];
-    String maskedUsername = username.length > 3
-        ? username.substring(0, 3) + '***'
-        : '***';
-    _maskedEmail = maskedUsername + '@' + parts[1];
-
-    // TODO: Implement Firebase password reset
-
-    setState(() {
-      _emailSent = true;
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
-      title: Text(_emailSent ? 'Password Reset Sent!' : 'Forgot Password?'),
-      content: _emailSent
-          ? Column(
-        mainAxisSize: MainAxisSize.min,
+  Widget _buildPasswordRequirement(String text) {
+    return Padding(
+      padding: EdgeInsets.only(top: 2),
+      child: Row(
         children: [
-          Icon(
-            Icons.check_circle,
-            color: Colors.green,
-            size: 60,
-          ),
-          SizedBox(height: 16),
+          Icon(Icons.check_circle_outline, size: 16, color: Colors.blue.shade700),
+          SizedBox(width: 6),
           Text(
-            "We've sent the password reset link to $_maskedEmail",
-            textAlign: TextAlign.center,
-          ),
-          SizedBox(height: 16),
-          Text(
-            "Didn't receive the email?",
-            style: TextStyle(fontSize: 12, color: Colors.grey),
+            text,
+            style: TextStyle(fontSize: 12, color: Colors.blue.shade900),
           ),
         ],
-      )
-          : Text(
-        'Enter your email address and we\'ll send you a link to reset your password.',
       ),
-      actions: _emailSent
-          ? [
-        TextButton(
-          onPressed: _sendResetEmail,
-          child: Text('Resend'),
-        ),
-        ElevatedButton(
-          onPressed: () {
-            Navigator.of(context).pop();
-          },
-          child: Text('OK'),
-        ),
-      ]
-          : [
-        TextButton(
-          onPressed: () {
-            Navigator.of(context).pop();
-          },
-          child: Text('Cancel'),
-        ),
-        ElevatedButton(
-          onPressed: _sendResetEmail,
-          child: Text('Send'),
-        ),
-      ],
     );
   }
 }
