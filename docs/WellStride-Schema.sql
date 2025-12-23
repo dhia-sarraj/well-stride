@@ -15,7 +15,6 @@ CREATE TYPE mood_score_enum AS ENUM ('1','2','3','4','5');
 -- Users
 CREATE TABLE users (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    username VARCHAR(100) NOT NULL,
     email VARCHAR(255) UNIQUE NOT NULL,
     email_verified BOOLEAN NOT NULL DEFAULT FALSE,
     password_hash VARCHAR(255),              -- nullable for OAuth users
@@ -29,6 +28,7 @@ CREATE INDEX ix_users_email ON users(email);
 -- User Profiles
 CREATE TABLE user_profiles (
     user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    username VARCHAR(100) NOT NULL,
     photo_url TEXT,
     age SMALLINT,
     gender gender_enum,

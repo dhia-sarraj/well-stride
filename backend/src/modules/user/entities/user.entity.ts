@@ -11,14 +11,6 @@ export class User {
   id: string;
 
   @ApiProperty({
-    description: 'Username',
-    required: true,
-    type: 'string',
-    example: 'Steve',
-  })
-  username: string;
-
-  @ApiProperty({
     description: 'Email',
     required: true,
     type: 'string',

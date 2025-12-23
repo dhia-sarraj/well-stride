@@ -11,16 +11,6 @@ import { user_provider as Provider } from 'generated/prisma/enums';
 
 export class RegisterUserDto {
   @ApiProperty({
-    description: 'Username',
-    required: true,
-    type: 'string',
-    example: 'Your Name',
-  })
-  @IsString()
-  @MinLength(3)
-  username: string;
-
-  @ApiProperty({
     description: 'Email',
     required: true,
     type: 'string',

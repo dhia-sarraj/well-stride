@@ -7,6 +7,13 @@ import { StepsModule } from './modules/steps/steps.module';
 import { QuotesModule } from './modules/quotes/quotes.module';
 
 @Module({
-  imports: [AuthModule, PrismaModule, UserModule, ProfileModule, StepsModule, QuotesModule],
+  imports: [
+    AuthModule,
+    PrismaModule,
+    UserModule,
+    ProfileModule,
+    StepsModule,
+    QuotesModule,
+  ],
 })
 export class AppModule {}

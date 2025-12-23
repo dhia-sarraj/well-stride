@@ -12,6 +12,12 @@ export class ProfileResponse {
   @ApiPropertyOptional({
     description: 'User Photo',
     type: 'string',
+  })
+  username: string;
+
+  @ApiPropertyOptional({
+    description: 'User Photo',
+    type: 'string',
     nullable: true,
   })
   photoUrl: string | null;

@@ -95,14 +95,12 @@ export class AuthService {
     try {
       const newUser = await this.prisma.users.create({
         data: {
-          username: dto.username,
           email: dto.email,
           password_hash: hashedPassword,
           provider: dto.provider,
         },
         select: {
           id: true,
-          username: true,
           email: true,
           email_verified: true,
           provider: true,
@@ -149,7 +147,6 @@ export class AuthService {
       data: { last_login: new Date() },
       select: {
         id: true,
-        username: true,
         email: true,
         email_verified: true,
         provider: true,
@@ -185,7 +182,6 @@ export class AuthService {
       where: { id: matchedToken.user_id },
       select: {
         id: true,
-        username: true,
         email: true,
         email_verified: true,
         provider: true,

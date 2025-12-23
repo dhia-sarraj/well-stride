@@ -113,6 +113,7 @@ model user_favorite_quotes {
 
 model user_profiles {
   user_id    String       @id @db.Uuid
+  username   String       @db.VarChar(100)
   photo_url  String?
   age        Int?         @db.SmallInt
   gender     gender_enum?
@@ -124,7 +125,6 @@ model user_profiles {
 
 model users {
   id                   String                 @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  username             String                 @db.VarChar(100)
   email                String                 @unique @db.VarChar(255)
   email_verified       Boolean                @default(false)
   password_hash        String?                @db.VarChar(255)

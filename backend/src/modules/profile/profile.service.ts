@@ -17,6 +17,7 @@ export class ProfileService {
       await this.prisma.user_profiles.create({
         data: {
           user_id: userId,
+          username: dto.username,
           photo_url: dto.photoUrl,
           age: dto.age,
           gender: dto.gender,
@@ -56,6 +57,7 @@ export class ProfileService {
       profile = this.prisma.user_profiles.update({
         where: { user_id: userId },
         data: {
+          username: dto.username,
           photo_url: dto.photoUrl,
           age: dto.age,
           gender: dto.gender,

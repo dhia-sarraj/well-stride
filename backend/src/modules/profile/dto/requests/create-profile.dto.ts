@@ -12,6 +12,13 @@ import { gender_enum } from 'generated/prisma/enums';
 
 export class CreateProfileDto {
   @ApiPropertyOptional({
+    description: 'Username',
+    type: 'string',
+  })
+  @IsString()
+  username: string;
+
+  @ApiPropertyOptional({
     description: 'User Photo',
     type: 'string',
   })
