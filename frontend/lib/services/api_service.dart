@@ -113,7 +113,7 @@ class ApiService {
       print('Login response status: ${response.statusCode}');
       print('Login response body: ${response.body}');
 
-      if (response.statusCode == 200) {
+      if (response.statusCode == 200 || response.statusCode == 201) {
         final data = json.decode(response.body);
 
         // Check if tokens exist in response
@@ -155,7 +155,7 @@ class ApiService {
         body: json.encode({'refreshToken': refreshToken}),
       );
 
-      if (response.statusCode == 200) {
+      if (response.statusCode == 200 || response.statusCode == 201) {
         final data = json.decode(response.body);
         await _tokenService.saveTokens(
           accessToken: data['accessToken'],
@@ -223,7 +223,7 @@ class ApiService {
         }),
       );
 
-      if (response.statusCode != 200) {
+      if (response.statusCode != 200 && response.statusCode != 201) {
         throw Exception(_handleError(response));
       }
     } catch (e) {
@@ -249,7 +249,7 @@ class ApiService {
         }),
       );
 
-      if (response.statusCode != 200) {
+      if (response.statusCode != 200 && response.statusCode != 201) {
         throw Exception(_handleError(response));
       }
     } catch (e) {
@@ -306,7 +306,7 @@ class ApiService {
         headers: await _getHeaders(),
       );
 
-      if (response.statusCode == 200) {
+      if (response.statusCode == 200 || response.statusCode == 201) {
         final data = json.decode(response.body);
         return UserModel.fromJson(data);
       } else if (response.statusCode == 404) {
@@ -346,7 +346,7 @@ class ApiService {
         body: json.encode(body),
       );
 
-      if (response.statusCode == 200) {
+      if (response.statusCode == 200 || response.statusCode == 201) {
         return json.decode(response.body);
       } else {
         throw Exception(_handleError(response));
@@ -407,7 +407,7 @@ class ApiService {
         headers: await _getHeaders(),
       );
 
-      if (response.statusCode == 200) {
+      if (response.statusCode == 200 || response.statusCode == 201) {
         final data = json.decode(response.body);
         return StepsModel.fromJson(data);
       } else if (response.statusCode == 404) {
@@ -431,7 +431,7 @@ class ApiService {
         headers: await _getHeaders(),
       );
 
-      if (response.statusCode == 200) {
+      if (response.statusCode == 200 || response.statusCode == 201) {
         final data = json.decode(response.body);
         return StepsModel.fromJson(data);
       } else if (response.statusCode == 404) {
@@ -456,7 +456,7 @@ class ApiService {
         body: json.encode({'goal': goal}),
       );
 
-      if (response.statusCode != 200) {
+      if (response.statusCode != 200 && response.statusCode != 201) {
         throw Exception(_handleError(response));
       }
     } catch (e) {
@@ -477,7 +477,7 @@ class ApiService {
         headers: await _getHeaders(),
       );
 
-      if (response.statusCode == 200) {
+      if (response.statusCode == 200 || response.statusCode == 201) {
         final data = json.decode(response.body);
         return data['quote'] ?? data['text'] ?? 'Stay positive!';
       } else {
@@ -498,7 +498,7 @@ class ApiService {
         headers: await _getHeaders(),
       );
 
-      if (response.statusCode == 200) {
+      if (response.statusCode == 200 || response.statusCode == 201) {
         await _tokenService.clearTokens();
       } else {
         throw Exception(_handleError(response));

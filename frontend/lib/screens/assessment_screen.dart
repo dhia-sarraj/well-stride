@@ -4,52 +4,52 @@ import 'package:wellstride/services/api_service.dart';
 
 class AssessmentScreen extends StatefulWidget {
   @override
-  _AssessmentScreenState createState() => _AssessmentScreenState();
+  State<AssessmentScreen> createState() => _AssessmentScreenState();
 }
 
 class _AssessmentScreenState extends State<AssessmentScreen> {
-  final _formKey = GlobalKey<FormState>();
   final PageController _pageController = PageController();
   final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _weightController = TextEditingController();
-  final FocusNode _usernameFocusNode = FocusNode();
   final ApiService _apiService = ApiService();
 
   int _currentPage = 0;
   final int _totalPages = 6;
   bool _isLoading = false;
-  String? _errorMessage;
 
-  // Form data
   String _username = '';
   int _age = 25;
-  double _weight = 70.0;
+
+  /// Always stored in KG
+  double _weightKg = 70.0;
   String _weightUnit = 'kg';
-  double _height = 170.0;
+
+  /// Always stored in CM
+  double _heightCm = 170.0;
   String _heightUnit = 'cm';
+
   String _sex = 'Male';
   int _targetSteps = 10000;
 
   @override
   void initState() {
     super.initState();
-    _weightController.text = _weight.toStringAsFixed(1);
+    _weightController.text = _weightKg.toStringAsFixed(1);
   }
 
   @override
   void dispose() {
+    _pageController.dispose();
     _usernameController.dispose();
     _weightController.dispose();
-    _usernameFocusNode.dispose();
     super.dispose();
   }
 
   void _nextPage() {
     FocusScope.of(context).unfocus();
-
     if (_currentPage < _totalPages - 1) {
       _pageController.nextPage(
-        duration: Duration(milliseconds: 300),
+        duration: const Duration(milliseconds: 300),
         curve: Curves.easeInOut,
       );
     } else {
@@ -61,592 +61,377 @@ class _AssessmentScreenState extends State<AssessmentScreen> {
     FocusScope.of(context).unfocus();
     if (_currentPage > 0) {
       _pageController.previousPage(
-        duration: Duration(milliseconds: 300),
+        duration: const Duration(milliseconds: 300),
         curve: Curves.easeInOut,
       );
     }
   }
 
-  void _saveAndContinue() async {
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
+  Future<void> _saveAndContinue() async {
+    if (_username.trim().isEmpty) {
+      _showError("Username cannot be empty");
+      return;
+    }
+
+    setState(() => _isLoading = true);
 
     try {
-      // Convert weight and height to kg/cm if needed
-      double weightKg = _weightUnit == 'kg' ? _weight : _weight * 0.453592;
-      double heightCm = _heightUnit == 'cm' ? _height : _height * 30.48;
-
-      // Create profile via API
       await _apiService.createProfile(
-        username: _username,
+        username: _username.trim(),
         age: _age,
-        gender: _sex, // Backend uses 'gender'
-        height: heightCm,
-        weight: weightKg,
+        gender: _sex, // MUST be "Male" or "Female"
+        height: _heightCm,
+        weight: _weightKg,
       );
 
-      // Update step goal
       await _apiService.updateStepGoal(_targetSteps);
 
-      // Navigate to home
       if (mounted) {
         Navigator.pushReplacementNamed(context, '/home');
       }
     } catch (e) {
-      setState(() {
-        _errorMessage = e.toString().replaceAll('Exception: ', '');
-        _isLoading = false;
-      });
-
-      // Show error dialog
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: Text('Error'),
-          content: Text(_errorMessage ?? 'Failed to create profile'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text('OK'),
-            ),
-          ],
-        ),
-      );
+      _showError(e.toString().replaceAll('Exception: ', ''));
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  void _showError(String message) {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Error'),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Color(0xFFC16200),
+      backgroundColor: const Color(0xFFC16200),
       appBar: AppBar(
-        backgroundColor: Color(0xFFC16200),
+        backgroundColor: const Color(0xFFC16200),
         elevation: 0,
         leading: _currentPage > 0
             ? IconButton(
-          icon: Icon(Icons.arrow_back, color: Colors.white),
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: _previousPage,
         )
             : null,
       ),
       body: SafeArea(
-        child: GestureDetector(
-          onTap: () => FocusScope.of(context).unfocus(),
-          child: Column(
-            children: [
-              // Progress indicator
-              Padding(
-                padding: EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(10),
-                        child: LinearProgressIndicator(
-                          value: (_currentPage + 1) / _totalPages,
-                          minHeight: 8,
-                          backgroundColor: Colors.white.withOpacity(0.3),
-                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                        ),
-                      ),
-                    ),
-                    SizedBox(width: 12),
-                    Text(
-                      '${_currentPage + 1}/$_totalPages',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white,
-                        fontSize: 16,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              // Page content
-              Expanded(
-                child: PageView(
-                  controller: _pageController,
-                  physics: NeverScrollableScrollPhysics(),
-                  onPageChanged: (index) {
-                    setState(() {
-                      _currentPage = index;
-                    });
-                  },
-                  children: [
-                    _buildUsernamePage(),
-                    _buildAgePage(),
-                    _buildWeightPage(),
-                    _buildHeightPage(),
-                    _buildSexPage(),
-                    _buildTargetStepsPage(),
-                  ],
-                ),
-              ),
-
-              // Next button
-              Padding(
-                padding: EdgeInsets.all(24),
-                child: ElevatedButton(
-                  onPressed: _isLoading ? null : _nextPage,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    foregroundColor: Color(0xFFC16200),
-                    minimumSize: Size(double.infinity, 56),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  child: _isLoading
-                      ? SizedBox(
-                    height: 20,
-                    width: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFC16200)),
-                    ),
-                  )
-                      : Text(
-                    _currentPage == _totalPages - 1 ? 'Get Started' : 'Next',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  // USERNAME PAGE
-  Widget _buildUsernamePage() {
-    return SingleChildScrollView(
-      padding: EdgeInsets.all(24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(height: 40),
-          Text(
-            "What should we call you?",
-            style: TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-            ),
-          ),
-          SizedBox(height: 32),
-          TextFormField(
-            controller: _usernameController,
-            focusNode: _usernameFocusNode,
-            style: TextStyle(color: Colors.white),
-            textInputAction: TextInputAction.done,
-            onFieldSubmitted: (_) {
-              _usernameFocusNode.unfocus();
-            },
-            decoration: InputDecoration(
-              labelText: 'Username',
-              labelStyle: TextStyle(color: Colors.white70),
-              prefixIcon: Icon(Icons.person_outline, color: Colors.white),
-              filled: true,
-              fillColor: Colors.white.withOpacity(0.2),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide.none,
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: Colors.white.withOpacity(0.3)),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: Colors.white, width: 2),
-              ),
-            ),
-            onChanged: (value) {
-              setState(() {
-                _username = value;
-              });
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
-  // AGE PAGE
-  Widget _buildAgePage() {
-    return Padding(
-      padding: EdgeInsets.all(24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(height: 40),
-          Text(
-            "How old are you?",
-            style: TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-            ),
-          ),
-          SizedBox(height: 60),
-          Center(
-            child: Container(
-              height: 250,
-              child: CupertinoPicker(
-                scrollController: FixedExtentScrollController(initialItem: _age - 13),
-                itemExtent: 50,
-                onSelectedItemChanged: (index) {
-                  setState(() {
-                    _age = index + 13;
-                  });
-                },
-                children: List<Widget>.generate(88, (index) {
-                  int age = index + 13;
-                  return Center(
-                    child: Text(
-                      '$age',
-                      style: TextStyle(
-                        fontSize: 32,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
-                  );
-                }),
-              ),
-            ),
-          ),
-          SizedBox(height: 20),
-          Center(
-            child: Text(
-              'years old',
-              style: TextStyle(fontSize: 18, color: Colors.white70),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // WEIGHT PAGE
-  Widget _buildWeightPage() {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        return SingleChildScrollView(
-          padding: EdgeInsets.all(24),
-          child: ConstrainedBox(
-            constraints: BoxConstraints(
-              minHeight: constraints.maxHeight - 48,
-            ),
-            child: IntrinsicHeight(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+        child: Column(
+          children: [
+            _progressBar(),
+            Expanded(
+              child: PageView(
+                controller: _pageController,
+                physics: const NeverScrollableScrollPhysics(),
+                onPageChanged: (i) => setState(() => _currentPage = i),
                 children: [
-                  SizedBox(height: 40),
-                  Text(
-                    "What's your weight?",
-                    style: TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                  ),
-                  SizedBox(height: 60),
-                  Center(
-                    child: Column(
-                      children: [
-                        Container(
-                          width: 200,
-                          child: TextFormField(
-                            controller: _weightController,
-                            keyboardType: TextInputType.numberWithOptions(decimal: true),
-                            textInputAction: TextInputAction.done,
-                            style: TextStyle(
-                              fontSize: 48,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
-                            textAlign: TextAlign.center,
-                            decoration: InputDecoration(
-                              border: InputBorder.none,
-                              hintText: '0.0',
-                              hintStyle: TextStyle(color: Colors.white38),
-                            ),
-                            onChanged: (value) {
-                              setState(() {
-                                _weight = double.tryParse(value) ?? _weight;
-                              });
-                            },
-                            onFieldSubmitted: (_) {
-                              FocusScope.of(context).unfocus();
-                            },
-                          ),
-                        ),
-                        SizedBox(height: 20),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            _buildUnitButton('kg', _weightUnit == 'kg', () {
-                              setState(() {
-                                if (_weightUnit == 'lbs') {
-                                  _weight = _weight * 0.453592;
-                                  _weightController.text = _weight.toStringAsFixed(1);
-                                }
-                                _weightUnit = 'kg';
-                              });
-                            }),
-                            SizedBox(width: 16),
-                            _buildUnitButton('lbs', _weightUnit == 'lbs', () {
-                              setState(() {
-                                if (_weightUnit == 'kg') {
-                                  _weight = _weight * 2.20462;
-                                  _weightController.text = _weight.toStringAsFixed(1);
-                                }
-                                _weightUnit = 'lbs';
-                              });
-                            }),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
+                  _usernamePage(),
+                  _agePage(),
+                  _weightPage(),
+                  _heightPage(),
+                  _sexPage(),
+                  _stepsPage(),
                 ],
               ),
             ),
-          ),
-        );
-      },
-    );
-  }
-
-  // HEIGHT PAGE
-  Widget _buildHeightPage() {
-    return Padding(
-      padding: EdgeInsets.all(24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(height: 40),
-          Text(
-            "What's your height?",
-            style: TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-            ),
-          ),
-          SizedBox(height: 60),
-          Center(
-            child: Column(
-              children: [
-                Text(
-                  _heightUnit == 'cm'
-                      ? '${_height.toStringAsFixed(0)}'
-                      : '${(_height / 30.48).toStringAsFixed(1)}',
-                  style: TextStyle(
-                    fontSize: 72,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
-                Text(
-                  _heightUnit,
-                  style: TextStyle(fontSize: 18, color: Colors.white70),
-                ),
-                SizedBox(height: 32),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    _buildUnitButton('cm', _heightUnit == 'cm', () {
-                      setState(() {
-                        if (_heightUnit == 'ft') {
-                          _height = _height * 30.48;
-                        }
-                        _heightUnit = 'cm';
-                      });
-                    }),
-                    SizedBox(width: 16),
-                    _buildUnitButton('ft', _heightUnit == 'ft', () {
-                      setState(() {
-                        if (_heightUnit == 'cm') {
-                          _height = _height / 30.48;
-                        }
-                        _heightUnit = 'ft';
-                      });
-                    }),
-                  ],
-                ),
-                SizedBox(height: 32),
-                Slider(
-                  value: _heightUnit == 'cm' ? _height : _height,
-                  min: _heightUnit == 'cm' ? 120 : 4,
-                  max: _heightUnit == 'cm' ? 220 : 7.5,
-                  activeColor: Colors.white,
-                  inactiveColor: Colors.white30,
-                  onChanged: (value) {
-                    setState(() {
-                      _height = value;
-                    });
-                  },
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // SEX PAGE
-  Widget _buildSexPage() {
-    return Padding(
-      padding: EdgeInsets.all(24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(height: 40),
-          Text(
-            "What's your sex?",
-            style: TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-            ),
-          ),
-          SizedBox(height: 32),
-          _buildSexOption('Male', Icons.male),
-          SizedBox(height: 16),
-          _buildSexOption('Female', Icons.female),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSexOption(String sex, IconData icon) {
-    bool isSelected = _sex == sex;
-    return InkWell(
-      onTap: () {
-        setState(() {
-          _sex = sex;
-        });
-      },
-      child: Container(
-        padding: EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: isSelected ? Colors.white : Colors.white.withOpacity(0.1),
-          border: Border.all(
-            color: isSelected ? Colors.white : Colors.white.withOpacity(0.3),
-            width: 2,
-          ),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Row(
-          children: [
-            Icon(
-              icon,
-              size: 32,
-              color: isSelected ? Color(0xFFC16200) : Colors.white,
-            ),
-            SizedBox(width: 16),
-            Text(
-              sex,
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-                color: isSelected ? Color(0xFFC16200) : Colors.white,
-              ),
-            ),
+            _nextButton(),
           ],
         ),
       ),
     );
   }
 
-  // TARGET STEPS PAGE
-  Widget _buildTargetStepsPage() {
+  Widget _progressBar() {
     return Padding(
-      padding: EdgeInsets.all(24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      padding: const EdgeInsets.all(24),
+      child: Row(
         children: [
-          SizedBox(height: 40),
-          Text(
-            "What's your daily step goal?",
-            style: TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
+          Expanded(
+            child: LinearProgressIndicator(
+              value: (_currentPage + 1) / _totalPages,
+              backgroundColor: Colors.white30,
+              valueColor:
+              const AlwaysStoppedAnimation<Color>(Colors.white),
+              minHeight: 8,
             ),
           ),
-          SizedBox(height: 16),
+          const SizedBox(width: 12),
           Text(
-            "Don't worry, you can change this later",
-            style: TextStyle(color: Colors.white70),
-          ),
-          SizedBox(height: 60),
-          Center(
-            child: Column(
-              children: [
-                Text(
-                  '${_targetSteps.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},')}',
-                  style: TextStyle(
-                    fontSize: 72,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
-                Text(
-                  'steps per day',
-                  style: TextStyle(fontSize: 18, color: Colors.white70),
-                ),
-                SizedBox(height: 32),
-                Slider(
-                  value: _targetSteps.toDouble(),
-                  min: 5000,
-                  max: 20000,
-                  divisions: 30,
-                  activeColor: Colors.white,
-                  inactiveColor: Colors.white30,
-                  onChanged: (value) {
-                    setState(() {
-                      _targetSteps = (value / 500).round() * 500;
-                    });
-                  },
-                ),
-              ],
-            ),
+            '${_currentPage + 1}/$_totalPages',
+            style: const TextStyle(color: Colors.white),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildUnitButton(String unit, bool isSelected, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-        decoration: BoxDecoration(
-          color: isSelected ? Colors.white : Colors.white.withOpacity(0.2),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: isSelected ? Colors.white : Colors.white.withOpacity(0.3),
-            width: 2,
-          ),
+  Widget _nextButton() {
+    return Padding(
+      padding: const EdgeInsets.all(24),
+      child: ElevatedButton(
+        onPressed: _isLoading ? null : _nextPage,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.white,
+          foregroundColor: const Color(0xFFC16200),
+          minimumSize: const Size(double.infinity, 56),
         ),
-        child: Text(
-          unit,
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-            color: isSelected ? Color(0xFFC16200) : Colors.white,
-          ),
+        child: _isLoading
+            ? const CircularProgressIndicator()
+            : Text(
+          _currentPage == _totalPages - 1
+              ? 'Get Started'
+              : 'Next',
         ),
       ),
     );
   }
+
+  /// ---------- PAGES ----------
+
+  Widget _usernamePage() => _pageWrapper(
+    Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _title("What should we call you?"),
+        TextField(
+          controller: _usernameController,
+          style: const TextStyle(color: Colors.white),
+          decoration: _inputDecoration('Username'),
+          onChanged: (v) => _username = v,
+        ),
+      ],
+    ),
+  );
+
+  Widget _agePage() => _pageWrapper(
+    Column(
+      children: [
+        _title("How old are you?"),
+        SizedBox(
+          height: 250,
+          child: CupertinoPicker(
+            itemExtent: 50,
+            scrollController:
+            FixedExtentScrollController(initialItem: _age - 13),
+            onSelectedItemChanged: (i) => _age = i + 13,
+            children: List.generate(
+              88,
+                  (i) => Center(
+                child: Text(
+                  '${i + 13}',
+                  style: const TextStyle(
+                      color: Colors.white, fontSize: 32),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+
+  Widget _weightPage() => _pageWrapper(
+    Column(
+      children: [
+        _title("What's your weight?"),
+        TextField(
+          controller: _weightController,
+          keyboardType:
+          const TextInputType.numberWithOptions(decimal: true),
+          style: const TextStyle(
+              fontSize: 48,
+              fontWeight: FontWeight.bold,
+              color: Colors.white),
+          textAlign: TextAlign.center,
+          decoration: const InputDecoration(border: InputBorder.none),
+          onChanged: (v) {
+            final value = double.tryParse(v);
+            if (value != null) {
+              _weightKg =
+              _weightUnit == 'kg' ? value : value * 0.453592;
+            }
+          },
+        ),
+        _unitToggle(
+          current: _weightUnit,
+          options: const ['kg', 'lbs'],
+          onSelect: (u) {
+            if (_weightUnit != u) {
+              if (u == 'lbs') {
+                _weightController.text =
+                    (_weightKg * 2.20462).toStringAsFixed(1);
+              } else {
+                _weightController.text =
+                    _weightKg.toStringAsFixed(1);
+              }
+              _weightUnit = u;
+              setState(() {});
+            }
+          },
+        ),
+      ],
+    ),
+  );
+
+  Widget _heightPage() => _pageWrapper(
+    Column(
+      children: [
+        _title("What's your height?"),
+        Text(
+          _heightUnit == 'cm'
+              ? _heightCm.toStringAsFixed(0)
+              : (_heightCm / 30.48).toStringAsFixed(1),
+          style: const TextStyle(
+              fontSize: 72,
+              fontWeight: FontWeight.bold,
+              color: Colors.white),
+        ),
+        Text(_heightUnit,
+            style: const TextStyle(color: Colors.white70)),
+        _unitToggle(
+          current: _heightUnit,
+          options: const ['cm', 'ft'],
+          onSelect: (u) => setState(() => _heightUnit = u),
+        ),
+        Slider(
+          value: _heightUnit == 'cm'
+              ? _heightCm
+              : _heightCm / 30.48,
+          min: _heightUnit == 'cm' ? 120 : 4,
+          max: _heightUnit == 'cm' ? 220 : 7.5,
+          onChanged: (v) => setState(() {
+            _heightCm = _heightUnit == 'cm' ? v : v * 30.48;
+          }),
+          activeColor: Colors.white,
+          inactiveColor: Colors.white30,
+        ),
+      ],
+    ),
+  );
+
+  Widget _sexPage() => _pageWrapper(
+    Column(
+      children: [
+        _title("What's your sex?"),
+        _sexOption('Male', Icons.male),
+        const SizedBox(height: 16),
+        _sexOption('Female', Icons.female),
+      ],
+    ),
+  );
+
+  Widget _stepsPage() => _pageWrapper(
+    Column(
+      children: [
+        _title("Daily step goal"),
+        Text(
+          '$_targetSteps',
+          style: const TextStyle(
+              fontSize: 72,
+              fontWeight: FontWeight.bold,
+              color: Colors.white),
+        ),
+        Slider(
+          value: _targetSteps.toDouble(),
+          min: 5000,
+          max: 20000,
+          divisions: 30,
+          onChanged: (v) =>
+              setState(() => _targetSteps = v.round()),
+          activeColor: Colors.white,
+          inactiveColor: Colors.white30,
+        ),
+      ],
+    ),
+  );
+
+  /// ---------- HELPERS ----------
+
+  Widget _pageWrapper(Widget child) => SingleChildScrollView(
+    padding: const EdgeInsets.all(24),
+    child: child,
+  );
+
+  Widget _title(String text) => Padding(
+    padding: const EdgeInsets.only(bottom: 32),
+    child: Text(
+      text,
+      style: const TextStyle(
+          fontSize: 28,
+          fontWeight: FontWeight.bold,
+          color: Colors.white),
+    ),
+  );
+
+  InputDecoration _inputDecoration(String label) => InputDecoration(
+    labelText: label,
+    labelStyle: const TextStyle(color: Colors.white70),
+    filled: true,
+    fillColor: Colors.white24,
+    border: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(12),
+      borderSide: BorderSide.none,
+    ),
+  );
+
+  Widget _unitToggle({
+    required String current,
+    required List<String> options,
+    required Function(String) onSelect,
+  }) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: options.map((u) {
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          child: ChoiceChip(
+            label: Text(u),
+            selected: current == u,
+            onSelected: (_) => onSelect(u),
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _sexOption(String value, IconData icon) => GestureDetector(
+    onTap: () => setState(() => _sex = value),
+    child: Container(
+      padding: const EdgeInsets.all(20),
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: _sex == value ? Colors.white : Colors.white24,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          Icon(icon,
+              color: _sex == value
+                  ? const Color(0xFFC16200)
+                  : Colors.white),
+          const SizedBox(width: 16),
+          Text(
+            value,
+            style: TextStyle(
+              color: _sex == value
+                  ? const Color(0xFFC16200)
+                  : Colors.white,
+              fontSize: 18,
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
 }
