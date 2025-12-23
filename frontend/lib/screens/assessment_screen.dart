@@ -16,6 +16,7 @@ class _AssessmentScreenState extends State<AssessmentScreen> {
   int _currentPage = 0;
   final int _totalPages = 6;
   bool _isLoading = false;
+  bool _profileCreated = false; // Prevent double submission
 
   String _username = '';
   int _age = 25;
@@ -73,18 +74,38 @@ class _AssessmentScreenState extends State<AssessmentScreen> {
       return;
     }
 
+    if (_profileCreated) return; // Prevent double submission
+
     setState(() => _isLoading = true);
 
     try {
-      await _apiService.createProfile(
-        username: _username.trim(),
-        age: _age,
-        gender: _sex, // MUST be "Male" or "Female"
-        height: _heightCm,
-        weight: _weightKg,
+      final double weightKg = _weightUnit == 'kg' ? _weightKg : _weightKg * 0.453592;
+      final double heightCm = _heightUnit == 'cm' ? _heightCm : _heightCm * 30.48;
+
+      final payload = {
+        "username": _username.trim(),
+        "photoUrl": null,
+        "age": _age,
+        "gender": _sex,   // Must be "Male" or "Female"
+        "height": heightCm.toInt(),
+        "weight": weightKg.toInt(),
+      };
+
+      print("Sending payload: $payload");
+
+      final response = await _apiService.createProfile(
+        username: payload['username'] as String,
+        age: payload['age'] as int,
+        gender: payload['gender'] as String,
+        height: (payload['height'] as int).toDouble(),
+        weight: (payload['weight'] as int).toDouble(),
+        photoUrl: null,
       );
 
-      await _apiService.updateStepGoal(_targetSteps);
+
+      print("Response: $response");
+
+      _profileCreated = true;
 
       if (mounted) {
         Navigator.pushReplacementNamed(context, '/home');
@@ -161,8 +182,7 @@ class _AssessmentScreenState extends State<AssessmentScreen> {
             child: LinearProgressIndicator(
               value: (_currentPage + 1) / _totalPages,
               backgroundColor: Colors.white30,
-              valueColor:
-              const AlwaysStoppedAnimation<Color>(Colors.white),
+              valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
               minHeight: 8,
             ),
           ),
@@ -180,7 +200,7 @@ class _AssessmentScreenState extends State<AssessmentScreen> {
     return Padding(
       padding: const EdgeInsets.all(24),
       child: ElevatedButton(
-        onPressed: _isLoading ? null : _nextPage,
+        onPressed: (_isLoading || _profileCreated) ? null : _nextPage,
         style: ElevatedButton.styleFrom(
           backgroundColor: Colors.white,
           foregroundColor: const Color(0xFFC16200),
@@ -189,9 +209,7 @@ class _AssessmentScreenState extends State<AssessmentScreen> {
         child: _isLoading
             ? const CircularProgressIndicator()
             : Text(
-          _currentPage == _totalPages - 1
-              ? 'Get Started'
-              : 'Next',
+          _currentPage == _totalPages - 1 ? 'Get Started' : 'Next',
         ),
       ),
     );
@@ -222,16 +240,14 @@ class _AssessmentScreenState extends State<AssessmentScreen> {
           height: 250,
           child: CupertinoPicker(
             itemExtent: 50,
-            scrollController:
-            FixedExtentScrollController(initialItem: _age - 13),
+            scrollController: FixedExtentScrollController(initialItem: _age - 13),
             onSelectedItemChanged: (i) => _age = i + 13,
             children: List.generate(
               88,
                   (i) => Center(
                 child: Text(
                   '${i + 13}',
-                  style: const TextStyle(
-                      color: Colors.white, fontSize: 32),
+                  style: const TextStyle(color: Colors.white, fontSize: 32),
                 ),
               ),
             ),
@@ -247,19 +263,14 @@ class _AssessmentScreenState extends State<AssessmentScreen> {
         _title("What's your weight?"),
         TextField(
           controller: _weightController,
-          keyboardType:
-          const TextInputType.numberWithOptions(decimal: true),
-          style: const TextStyle(
-              fontSize: 48,
-              fontWeight: FontWeight.bold,
-              color: Colors.white),
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          style: const TextStyle(fontSize: 48, fontWeight: FontWeight.bold, color: Colors.white),
           textAlign: TextAlign.center,
           decoration: const InputDecoration(border: InputBorder.none),
           onChanged: (v) {
             final value = double.tryParse(v);
             if (value != null) {
-              _weightKg =
-              _weightUnit == 'kg' ? value : value * 0.453592;
+              _weightKg = _weightUnit == 'kg' ? value : value * 0.453592;
             }
           },
         ),
@@ -269,11 +280,9 @@ class _AssessmentScreenState extends State<AssessmentScreen> {
           onSelect: (u) {
             if (_weightUnit != u) {
               if (u == 'lbs') {
-                _weightController.text =
-                    (_weightKg * 2.20462).toStringAsFixed(1);
+                _weightController.text = (_weightKg * 2.20462).toStringAsFixed(1);
               } else {
-                _weightController.text =
-                    _weightKg.toStringAsFixed(1);
+                _weightController.text = _weightKg.toStringAsFixed(1);
               }
               _weightUnit = u;
               setState(() {});
@@ -289,25 +298,17 @@ class _AssessmentScreenState extends State<AssessmentScreen> {
       children: [
         _title("What's your height?"),
         Text(
-          _heightUnit == 'cm'
-              ? _heightCm.toStringAsFixed(0)
-              : (_heightCm / 30.48).toStringAsFixed(1),
-          style: const TextStyle(
-              fontSize: 72,
-              fontWeight: FontWeight.bold,
-              color: Colors.white),
+          _heightUnit == 'cm' ? _heightCm.toStringAsFixed(0) : (_heightCm / 30.48).toStringAsFixed(1),
+          style: const TextStyle(fontSize: 72, fontWeight: FontWeight.bold, color: Colors.white),
         ),
-        Text(_heightUnit,
-            style: const TextStyle(color: Colors.white70)),
+        Text(_heightUnit, style: const TextStyle(color: Colors.white70)),
         _unitToggle(
           current: _heightUnit,
           options: const ['cm', 'ft'],
           onSelect: (u) => setState(() => _heightUnit = u),
         ),
         Slider(
-          value: _heightUnit == 'cm'
-              ? _heightCm
-              : _heightCm / 30.48,
+          value: _heightUnit == 'cm' ? _heightCm : _heightCm / 30.48,
           min: _heightUnit == 'cm' ? 120 : 4,
           max: _heightUnit == 'cm' ? 220 : 7.5,
           onChanged: (v) => setState(() {
@@ -335,20 +336,14 @@ class _AssessmentScreenState extends State<AssessmentScreen> {
     Column(
       children: [
         _title("Daily step goal"),
-        Text(
-          '$_targetSteps',
-          style: const TextStyle(
-              fontSize: 72,
-              fontWeight: FontWeight.bold,
-              color: Colors.white),
-        ),
+        Text('$_targetSteps',
+            style: const TextStyle(fontSize: 72, fontWeight: FontWeight.bold, color: Colors.white)),
         Slider(
           value: _targetSteps.toDouble(),
           min: 5000,
           max: 20000,
           divisions: 30,
-          onChanged: (v) =>
-              setState(() => _targetSteps = v.round()),
+          onChanged: (v) => setState(() => _targetSteps = v.round()),
           activeColor: Colors.white,
           inactiveColor: Colors.white30,
         ),
@@ -367,10 +362,7 @@ class _AssessmentScreenState extends State<AssessmentScreen> {
     padding: const EdgeInsets.only(bottom: 32),
     child: Text(
       text,
-      style: const TextStyle(
-          fontSize: 28,
-          fontWeight: FontWeight.bold,
-          color: Colors.white),
+      style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.white),
     ),
   );
 
@@ -416,19 +408,11 @@ class _AssessmentScreenState extends State<AssessmentScreen> {
       ),
       child: Row(
         children: [
-          Icon(icon,
-              color: _sex == value
-                  ? const Color(0xFFC16200)
-                  : Colors.white),
+          Icon(icon, color: _sex == value ? const Color(0xFFC16200) : Colors.white),
           const SizedBox(width: 16),
           Text(
             value,
-            style: TextStyle(
-              color: _sex == value
-                  ? const Color(0xFFC16200)
-                  : Colors.white,
-              fontSize: 18,
-            ),
+            style: TextStyle(color: _sex == value ? const Color(0xFFC16200) : Colors.white, fontSize: 18),
           ),
         ],
       ),
