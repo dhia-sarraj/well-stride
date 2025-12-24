@@ -23,6 +23,7 @@ export class ProfileService {
           gender: dto.gender,
           height_cm: dto.height,
           weight_kg: dto.weight,
+          goal: dto.goal,
           created_at: new Date(),
         },
       });
@@ -63,6 +64,7 @@ export class ProfileService {
           gender: dto.gender,
           height_cm: dto.height,
           weight_kg: dto.weight,
+          goal: dto.goal,
         },
       });
     } catch (error) {

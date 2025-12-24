@@ -66,11 +66,12 @@ export class QuotesController {
   @ApiBearerAuth()
   @UseGuards(AuthGuard('jwt'))
   @ApiOperation({
-    summary: 'GET A RANDOM QUOTE',
+    summary: 'GET ALL FAVORITE QUOTES',
+    description: 'Retrieve all favorite quotes of the authenticated user'
   })
   @ApiResponse({
     status: 200,
-    description: 'Successfully retrieved a random quote',
+    description: 'Successfully retrieved favorite quotes',
     type: QuoteResponse,
   })
   @ApiResponse({

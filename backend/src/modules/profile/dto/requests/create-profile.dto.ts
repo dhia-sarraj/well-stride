@@ -1,4 +1,4 @@
-import { ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiProperty } from '@nestjs/swagger';
 import {
   IsEnum,
   IsInt,
@@ -11,14 +11,14 @@ import {
 import { gender_enum } from 'generated/prisma/enums';
 
 export class CreateProfileDto {
-  @ApiPropertyOptional({
+  @ApiProperty({
     description: 'Username',
     type: 'string',
   })
   @IsString()
   username: string;
 
-  @ApiPropertyOptional({
+  @ApiProperty({
     description: 'User Photo',
     type: 'string',
   })
@@ -26,41 +26,51 @@ export class CreateProfileDto {
   @IsString()
   photoUrl?: string;
 
-  @ApiPropertyOptional({
+  @ApiProperty({
     description: 'User Age',
     type: 'number',
     example: 20,
+    required: true,
   })
-  @IsOptional()
   @IsInt()
   @Min(10)
   @Max(130)
-  age?: number;
+  age: number;
 
-  @ApiPropertyOptional({
+  @ApiProperty({
     description: 'User Gender',
     enum: gender_enum,
     example: gender_enum.Male,
+    required: true,
   })
-  @IsOptional()
   @IsEnum(gender_enum)
-  gender?: gender_enum;
+  gender: gender_enum;
 
-  @ApiPropertyOptional({
+  @ApiProperty({
     description: 'User Height in cm',
     type: 'number',
     example: 180,
+    required: true,
   })
-  @IsOptional()
   @IsNumber()
-  height?: number;
+  height: number;
 
-  @ApiPropertyOptional({
+  @ApiProperty({
     description: 'User Weight in kg',
     type: 'number',
     example: 70,
+    required: true,
   })
-  @IsOptional()
   @IsNumber()
-  weight?: number;
+  weight: number;
+
+  @ApiProperty({
+    description: 'User steps target',
+    type: 'number',
+    example: 15000,
+    required: true,
+    default: 10000,
+  })
+  @IsNumber()
+  goal: number;
 }

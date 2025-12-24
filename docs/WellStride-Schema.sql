@@ -29,10 +29,11 @@ CREATE TABLE user_profiles (
     user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
     username VARCHAR(100) NOT NULL,
     photo_url TEXT,
-    age SMALLINT,
-    gender gender_enum,
-    height_cm NUMERIC(6,2),
-    weight_kg NUMERIC(6,2),
+    age SMALLINT NOT NULL,
+    gender gender_enum NOT NULL,
+    height_cm NUMERIC(6,2) NOT NULL,
+    weight_kg NUMERIC(6,2) NOT NULL,
+    goal INTEGER NOT NULL DEFAULT 10000,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 

@@ -9,8 +9,8 @@ export class ProfileResponse {
   })
   userId: string;
 
-  @ApiPropertyOptional({
-    description: 'User Photo',
+  @ApiProperty({
+    description: 'Username',
     type: 'string',
   })
   username: string;
@@ -22,37 +22,39 @@ export class ProfileResponse {
   })
   photoUrl: string | null;
 
-  @ApiPropertyOptional({
+  @ApiProperty({
     description: 'User Age',
     type: 'number',
     example: 20,
-    nullable: true,
   })
-  age: number | null;
+  age: number;
 
-  @ApiPropertyOptional({
+  @ApiProperty({
     description: 'User Gender',
     enum: gender_enum,
     example: gender_enum.Male,
-    nullable: true,
   })
-  gender: gender_enum | null;
+  gender: gender_enum;
 
-  @ApiPropertyOptional({
+  @ApiProperty({
     description: 'User Height in cm',
     type: 'number',
     example: 180,
-    nullable: true,
   })
-  height: number | null;
+  height: number;
 
-  @ApiPropertyOptional({
+  @ApiProperty({
     description: 'User Weight in kg',
     type: 'number',
     example: 70,
-    nullable: true,
   })
-  weight: number | null;
+  weight: number;
+
+  @ApiProperty({
+    description: 'User steps target',
+    type: 'number',
+  })
+  goal: number;
 
   @ApiProperty({
     description: 'Profile created at',
