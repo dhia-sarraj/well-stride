@@ -5,6 +5,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { StepsService } from './steps.service';
@@ -20,14 +21,15 @@ import { SyncStepsDto } from './dto/requests/sync-steps.dto';
 import { AuthGuard } from '@nestjs/passport';
 import { StepSummaryResponse } from './dto/responses/steps-summary-response.dto';
 import { UpdateGoalDto } from './dto/requests/update-goal.dto';
+import { GetStepsQueryDto } from './dto/requests/get-steps-query.dto';
 
 @ApiTags('Steps')
 @Controller('api/steps')
 export class StepsController {
   constructor(private readonly stepsService: StepsService) {}
 
-  // POST: /steps/me
-  @Post('me')
+  // POST: /steps
+  @Post()
   @UseGuards(AuthGuard('jwt'))
   @ApiBearerAuth()
   @ApiOperation({
@@ -52,8 +54,8 @@ export class StepsController {
     return await this.stepsService.syncSteps(user.id, dto);
   }
 
-  // GET: /steps/me/today
-  @Get('/me/today')
+  // GET: /steps/today
+  @Get('/today')
   @UseGuards(AuthGuard('jwt'))
   @ApiBearerAuth()
   @ApiOperation({
@@ -69,30 +71,30 @@ export class StepsController {
     return await this.stepsService.getTodaySteps(user.id);
   }
 
-  // GET: /steps/me/:date
-  @Get('/me/:date')
+  // GET: /steps
+  @Get()
   @UseGuards(AuthGuard('jwt'))
   @ApiBearerAuth()
   @ApiOperation({
-    summary: 'GET STEP SUMMARY BY DATE',
+    summary: 'GET STEP LOGS',
     description:
-      'Fetch the daily step summary for the authenticated user by specifying a date in YYYY-MM-DD format.',
+      'Returns step logs for the authenticated user within a date range.',
   })
   @ApiResponse({
     status: 200,
-    description: 'Step summary for the requested date',
+    description: 'List of step logs',
     type: StepSummaryResponse,
   })
   @ApiResponse({
     status: 404,
     description: 'No step summary found for the requested date',
   })
-  async getByDate(@GetUser() user: User, @Param('date') date: string) {
-    return await this.stepsService.getStepsByDate(user.id, date);
+  async getSteps(@GetUser() user: User, @Query() query: GetStepsQueryDto) {
+    return await this.stepsService.getSteps(user.id, query);
   }
 
-  // PATCH: /steps/me/goal
-  @Patch('/me/goal')
+  // PATCH: /steps/goal
+  @Patch('/goal')
   @UseGuards(AuthGuard('jwt'))
   @ApiBearerAuth()
   @ApiOperation({
