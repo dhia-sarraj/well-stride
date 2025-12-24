@@ -410,6 +410,23 @@ class _MoodTrackerSheetState extends State<MoodTrackerSheet> {
     'anxious': 'Anxious',
   };
 
+  String mapMoodLevelToEmoji(String moodLevel) {
+    switch (moodLevel.toLowerCase()) {
+      case 'happy':
+        return '😊'; // Awesome
+      case 'calm':
+        return '😌'; // Happy
+      case 'neutral':
+        return '😐'; // Okay
+      case 'sad':
+        return '😔'; // Meh
+      case 'anxious':
+        return '😰'; // Sad
+      default:
+        return '😐';
+    }
+  }
+
   @override
   void dispose() {
     _noteController.dispose();
@@ -424,12 +441,15 @@ class _MoodTrackerSheetState extends State<MoodTrackerSheet> {
       return;
     }
 
+    String emoji = mapMoodLevelToEmoji(_selectedMoodLevel!);
+    String? reason = _selectedReasons.isNotEmpty ? _selectedReasons.first : null;
+
+
     MoodModel mood = MoodModel(
       id: 'mood_${DateTime.now().millisecondsSinceEpoch}',
       timestamp: DateTime.now(),
-      emoji: '😊',
-      moodLevel: _selectedMoodLevel!,
-      reasons: _selectedReasons,
+      emoji: emoji,
+      reason: reason,
       note: _noteController.text.isEmpty ? null : _noteController.text,
     );
 

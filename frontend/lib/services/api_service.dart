@@ -1,5 +1,7 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:http/http.dart' as http;
+import 'package:intl/intl.dart';
 import '../models/user_model.dart';
 import '../models/steps_model.dart';
 import '../models/mood_model.dart';
@@ -272,6 +274,8 @@ class ApiService {
     required double weight,
   }) async {
     try {
+      print('Creating profile for username: $username');
+
       final response = await http.post(
         Uri.parse('$baseUrl/profile/me'),
         headers: await _getHeaders(),
@@ -285,12 +289,16 @@ class ApiService {
         }),
       );
 
+      print('Create profile response status: ${response.statusCode}');
+      print('Create profile response body: ${response.body}');
+
       if (response.statusCode == 200 || response.statusCode == 201) {
         return json.decode(response.body);
       } else {
         throw Exception(_handleError(response));
       }
     } catch (e) {
+      print('Profile creation error: $e');
       if (e.toString().contains('Exception:')) {
         rethrow;
       }
@@ -301,20 +309,30 @@ class ApiService {
   /// Get user profile
   Future<UserModel?> getProfile() async {
     try {
+      print('Fetching user profile...');
+
       final response = await http.get(
         Uri.parse('$baseUrl/profile/me'),
         headers: await _getHeaders(),
       );
 
+      // DEBUG PRINTS AS REQUESTED
+      print('Profile API Response Status: ${response.statusCode}');
+      print('Profile API Response Body: ${response.body}');
+
       if (response.statusCode == 200 || response.statusCode == 201) {
         final data = json.decode(response.body);
-        return UserModel.fromJson(data);
+        final profile = UserModel.fromJson(data);
+        print('Profile parsed successfully: ${profile.username}');
+        return profile;
       } else if (response.statusCode == 404) {
+        print('Profile not found (404)');
         return null;
       } else {
         throw Exception(_handleError(response));
       }
     } catch (e) {
+      print('Get profile error: $e');
       if (e.toString().contains('Exception:')) {
         rethrow;
       }
@@ -340,11 +358,16 @@ class ApiService {
       if (height != null) body['height'] = height;
       if (weight != null) body['weight'] = weight;
 
+      print('Updating profile with data: $body');
+
       final response = await http.patch(
         Uri.parse('$baseUrl/profile/me'),
         headers: await _getHeaders(),
         body: json.encode(body),
       );
+
+      print('Update profile response status: ${response.statusCode}');
+      print('Update profile response body: ${response.body}');
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         return json.decode(response.body);
@@ -352,10 +375,39 @@ class ApiService {
         throw Exception(_handleError(response));
       }
     } catch (e) {
+      print('Profile update error: $e');
       if (e.toString().contains('Exception:')) {
         rethrow;
       }
       throw Exception('Profile update failed: ${e.toString()}');
+    }
+  }
+
+  ///Profile Photo
+  Future<String> uploadProfilePhoto(File imageFile) async {
+    try {
+      print('Uploading profile photo...');
+
+      var request = http.MultipartRequest(
+        'POST',
+        Uri.parse('$baseUrl/profile/me/photo'),
+      );
+      request.headers.addAll(await _getHeaders());
+      request.files.add(await http.MultipartFile.fromPath('photo', imageFile.path));
+
+      var response = await request.send();
+
+      print('Upload photo response status: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        var data = json.decode(await response.stream.bytesToString());
+        print('Photo uploaded successfully: ${data['photoUrl']}');
+        return data['photoUrl'];
+      }
+      throw Exception('Photo upload failed');
+    } catch (e) {
+      print('Photo upload error: $e');
+      throw Exception('Photo upload failed');
     }
   }
 
@@ -370,11 +422,13 @@ class ApiService {
     int? activeMinutes,
     int? stairsClimbed,
     int? caloriesEstimated,
-    String source = 'GoogleFit',
+    String source = 'Googlefit',
   }) async {
     try {
+      print('Updating steps for date: $date, stepCount: $stepCount, goal: $goal');
+
       final response = await http.post(
-        Uri.parse('$baseUrl/steps/me'),
+        Uri.parse('$baseUrl/steps'),
         headers: await _getHeaders(),
         body: json.encode({
           'date': date,
@@ -388,10 +442,14 @@ class ApiService {
         }),
       );
 
+      print('Update steps response status: ${response.statusCode}');
+      print('Update steps response body: ${response.body}');
+
       if (response.statusCode != 200 && response.statusCode != 201) {
         throw Exception(_handleError(response));
       }
     } catch (e) {
+      print('Update steps error: $e');
       if (e.toString().contains('Exception:')) {
         rethrow;
       }
@@ -402,20 +460,30 @@ class ApiService {
   /// Get today's steps
   Future<StepsModel?> getTodaySteps() async {
     try {
+      print('Fetching today\'s steps...');
+
       final response = await http.get(
-        Uri.parse('$baseUrl/steps/me/today'),
+        Uri.parse('$baseUrl/steps/today'),
         headers: await _getHeaders(),
       );
 
+      // DEBUG PRINTS AS REQUESTED
+      print('Steps API Response Status: ${response.statusCode}');
+      print('Steps API Response Body: ${response.body}');
+
       if (response.statusCode == 200 || response.statusCode == 201) {
         final data = json.decode(response.body);
-        return StepsModel.fromJson(data);
+        final steps = StepsModel.fromJson(data);
+        print('Steps parsed successfully: ${steps.steps} steps');
+        return steps;
       } else if (response.statusCode == 404) {
+        print('No steps found for today (404)');
         return null;
       } else {
         throw Exception(_handleError(response));
       }
     } catch (e) {
+      print('Get today steps error: $e');
       if (e.toString().contains('Exception:')) {
         rethrow;
       }
@@ -423,43 +491,61 @@ class ApiService {
     }
   }
 
-  /// Get steps for specific date
-  Future<StepsModel?> getStepsByDate(String date) async {
+  /// Get step logs for a date range
+  Future<List<StepsModel>> getStepsLogs(String from, String to) async {
     try {
+      print('Fetching step logs from $from to $to');
+
+      final uri = Uri.parse('$baseUrl/steps').replace(queryParameters: {
+        'from': from,
+        'to': to,
+      });
+
       final response = await http.get(
-        Uri.parse('$baseUrl/steps/me/$date'),
+        uri,
         headers: await _getHeaders(),
       );
 
+      print('Get steps logs response status: ${response.statusCode}');
+      print('Get steps logs response body: ${response.body}');
+
       if (response.statusCode == 200 || response.statusCode == 201) {
-        final data = json.decode(response.body);
-        return StepsModel.fromJson(data);
+        final List<dynamic> data = json.decode(response.body);
+        final stepsList = data.map((json) => StepsModel.fromJson(json)).toList();
+        print('Fetched ${stepsList.length} step records');
+        return stepsList;
       } else if (response.statusCode == 404) {
-        return null;
+        print('No step logs found (404)');
+        return [];
       } else {
         throw Exception(_handleError(response));
       }
     } catch (e) {
-      if (e.toString().contains('Exception:')) {
-        rethrow;
-      }
-      throw Exception('Failed to get steps: ${e.toString()}');
+      print('Get steps logs error: $e');
+      if (e.toString().contains('Exception:')) rethrow;
+      throw Exception('Failed to get step logs: ${e.toString()}');
     }
   }
 
   /// Update step goal
   Future<void> updateStepGoal(int goal) async {
     try {
+      print('Updating step goal to: $goal');
+
       final response = await http.patch(
-        Uri.parse('$baseUrl/steps/me/goal'),
+        Uri.parse('$baseUrl/steps/goal'),
         headers: await _getHeaders(),
         body: json.encode({'goal': goal}),
       );
+
+      print('Update step goal response status: ${response.statusCode}');
+      print('Update step goal response body: ${response.body}');
 
       if (response.statusCode != 200 && response.statusCode != 201) {
         throw Exception(_handleError(response));
       }
     } catch (e) {
+      print('Update step goal error: $e');
       if (e.toString().contains('Exception:')) {
         rethrow;
       }
@@ -472,19 +558,117 @@ class ApiService {
   /// Get random quote
   Future<String> getRandomQuote() async {
     try {
+      print('Fetching random quote...');
+
       final response = await http.get(
         Uri.parse('$baseUrl/quotes/random'),
         headers: await _getHeaders(),
       );
 
+      print('Get quote response status: ${response.statusCode}');
+      print('Get quote response body: ${response.body}');
+
       if (response.statusCode == 200 || response.statusCode == 201) {
         final data = json.decode(response.body);
-        return data['quote'] ?? data['text'] ?? 'Stay positive!';
+        final quote = data['text'] ?? data['quote'] ?? 'Stay positive!';
+        print('Quote fetched: $quote');
+        return quote;
       } else {
         return 'Every step forward is progress!';
       }
     } catch (e) {
+      print('Get quote error: $e');
       return 'Keep moving forward!';
+    }
+  }
+
+  // ==================== MOOD ENDPOINTS ====================
+
+  /// Create a mood record
+  Future<MoodModel?> createMood({
+    required String emoji,
+    String? reason,
+    String? note,
+  }) async {
+    try {
+      print('Creating mood: emoji=$emoji, reason=$reason');
+
+      final response = await http.post(
+        Uri.parse('$baseUrl/moods'),
+        headers: await _getHeaders(),
+        body: json.encode({
+          'emoji': emoji,
+          if (reason != null && reason.isNotEmpty) 'reason': reason,
+          if (note != null && note.isNotEmpty) 'note': note,
+        }),
+      );
+
+      print('Create mood response status: ${response.statusCode}');
+      print('Create mood response body: ${response.body}');
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final data = json.decode(response.body);
+        return MoodModel.fromJson(data);
+      } else {
+        throw Exception(_handleError(response));
+      }
+    } catch (e) {
+      print('Create mood error: $e');
+      if (e.toString().contains('Exception:')) {
+        rethrow;
+      }
+      throw Exception('Failed to create mood: ${e.toString()}');
+    }
+  }
+
+  /// Get mood logs for a date range
+  Future<List<MoodModel>> getMoodLogs(String from, String to) async {
+    try {
+      print('Fetching mood logs from $from to $to');
+
+      final uri = Uri.parse('$baseUrl/moods').replace(queryParameters: {
+        'from': from,
+        'to': to,
+      });
+
+      final response = await http.get(
+        uri,
+        headers: await _getHeaders(),
+      );
+
+      print('Get mood logs response status: ${response.statusCode}');
+      print('Get mood logs response body: ${response.body}');
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final List<dynamic> data = json.decode(response.body);
+        final moodList = data.map((json) => MoodModel.fromJson(json)).toList();
+        print('Fetched ${moodList.length} mood records');
+        return moodList;
+      } else if (response.statusCode == 404) {
+        print('No mood logs found (404)');
+        return [];
+      } else {
+        throw Exception(_handleError(response));
+      }
+    } catch (e) {
+      print('Get mood logs error: $e');
+      if (e.toString().contains('Exception:')) rethrow;
+      throw Exception('Failed to get mood logs: ${e.toString()}');
+    }
+  }
+
+  /// Get today's mood (helper method)
+  Future<MoodModel?> getTodayMood() async {
+    try {
+      print('Fetching today\'s mood...');
+      final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
+      final moods = await getMoodLogs(today, today);
+      final todayMood = moods.isNotEmpty ? moods.last : null;
+      print('Today\'s mood: ${todayMood?.emoji ?? 'Not set'}');
+      return todayMood;
+    } catch (e) {
+      print('Get today mood error: $e');
+      return null;
     }
   }
 
@@ -493,17 +677,24 @@ class ApiService {
   /// Delete user account
   Future<void> deleteAccount() async {
     try {
+      print('Deleting user account...');
+
       final response = await http.delete(
         Uri.parse('$baseUrl/users/me'),
         headers: await _getHeaders(),
       );
 
+      print('Delete account response status: ${response.statusCode}');
+      print('Delete account response body: ${response.body}');
+
       if (response.statusCode == 200 || response.statusCode == 201) {
         await _tokenService.clearTokens();
+        print('Account deleted successfully');
       } else {
         throw Exception(_handleError(response));
       }
     } catch (e) {
+      print('Delete account error: $e');
       if (e.toString().contains('Exception:')) {
         rethrow;
       }

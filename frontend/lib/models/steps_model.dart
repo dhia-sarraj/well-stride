@@ -8,6 +8,8 @@ class StepsModel {
   final int? stairsClimbed;
   final int? caloriesEstimated;
   final String? source;
+  final DateTime? syncedAt;
+  final DateTime? createdAt;
 
   StepsModel({
     this.id,
@@ -19,6 +21,8 @@ class StepsModel {
     this.stairsClimbed,
     this.caloriesEstimated,
     this.source,
+    this.syncedAt,
+    this.createdAt,
   });
 
   /// Calculate percentage of goal achieved
@@ -47,19 +51,58 @@ class StepsModel {
 
   /// Create from JSON (backend response)
   factory StepsModel.fromJson(Map<String, dynamic> json) {
+    print('Parsing StepsModel from JSON: $json'); // Debug print
+
     return StepsModel(
       id: json['id'] ?? json['_id'],
-      date: json['date'] is String
-          ? DateTime.parse(json['date'])
-          : DateTime.now(),
-      steps: json['stepCount'] ?? json['steps'] ?? 0,
-      targetSteps: json['goal'] ?? json['targetSteps'] ?? 10000,
-      activeMinutes: json['activeMinutes'] ?? 0,
-      distanceMeters: json['distanceMeters']?.toDouble(),
-      stairsClimbed: json['stairsClimbed'],
-      caloriesEstimated: json['caloriesEstimated'],
+      date: _parseDate(json['date']),
+      steps: _parseInt(json['stepCount'] ?? json['steps']) ?? 0,
+      targetSteps: _parseInt(json['goal'] ?? json['targetSteps']) ?? 10000,
+      activeMinutes: _parseInt(json['activeMinutes']) ?? 0,
+      distanceMeters: _parseDouble(json['distanceMeters']),
+      stairsClimbed: _parseInt(json['stairsClimbed']),
+      caloriesEstimated: _parseInt(json['caloriesEstimated']),
       source: json['source'],
+      syncedAt: _parseDateTime(json['syncedAt']),
+      createdAt: _parseDateTime(json['createdAt']),
     );
+  }
+
+  // Helper methods
+  static DateTime _parseDate(dynamic value) {
+    if (value == null) return DateTime.now();
+    if (value is DateTime) return value;
+    try {
+      return DateTime.parse(value.toString());
+    } catch (e) {
+      return DateTime.now();
+    }
+  }
+
+  static DateTime? _parseDateTime(dynamic value) {
+    if (value == null) return null;
+    if (value is DateTime) return value;
+    try {
+      return DateTime.parse(value.toString());
+    } catch (e) {
+      return null;
+    }
+  }
+
+  static int? _parseInt(dynamic value) {
+    if (value == null) return null;
+    if (value is int) return value;
+    if (value is double) return value.toInt();
+    if (value is String) return int.tryParse(value);
+    return null;
+  }
+
+  static double? _parseDouble(dynamic value) {
+    if (value == null) return null;
+    if (value is double) return value;
+    if (value is int) return value.toDouble();
+    if (value is String) return double.tryParse(value);
+    return null;
   }
 
   /// Create a copy with updated fields
@@ -73,6 +116,8 @@ class StepsModel {
     int? stairsClimbed,
     int? caloriesEstimated,
     String? source,
+    DateTime? syncedAt,
+    DateTime? createdAt,
   }) {
     return StepsModel(
       id: id ?? this.id,
@@ -84,6 +129,8 @@ class StepsModel {
       stairsClimbed: stairsClimbed ?? this.stairsClimbed,
       caloriesEstimated: caloriesEstimated ?? this.caloriesEstimated,
       source: source ?? this.source,
+      syncedAt: syncedAt ?? this.syncedAt,
+      createdAt: createdAt ?? this.createdAt,
     );
   }
 }

@@ -5,9 +5,14 @@ import 'mental_screen.dart';
 import 'analysis_screen.dart';
 
 class MainNavigation extends StatefulWidget {
+  final void Function(ThemeMode)? onThemeChanged;
+
+  const MainNavigation({Key? key, this.onThemeChanged}) : super(key: key);
+
   @override
   _MainNavigationState createState() => _MainNavigationState();
 }
+
 
 class _MainNavigationState extends State<MainNavigation> {
   int _currentIndex = 1; // Start at index 1 (Home screen)

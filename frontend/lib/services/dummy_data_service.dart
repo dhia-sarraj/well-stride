@@ -15,13 +15,13 @@ class DummyDataService {
   UserModel getDummyUser() {
     return UserModel(
       id: 'user_123',
+      username: 'Test',
       email: 'test@wellstride.com',
-      username: 'FitJohn',
       age: 28,
-      weight: 75.0,
-      height: 175.0,
-      sex: 'Male',
-      targetSteps: 10000,
+      weight: 88.0,
+      height: 200.0,
+      gender: 'Male',
+      targetSteps: 20000,
     );
   }
 
@@ -50,6 +50,16 @@ class DummyDataService {
   }
 
   // DUMMY MOOD DATA (Last 30 days)
+  MoodModel? getTodayMood() {
+    return MoodModel(
+      id: 'mood_today',
+      timestamp: DateTime.now(),
+      emoji: '😊', // Awesome
+      reason: 'Exercise', // Only one reason allowed
+      note: 'Had a great workout!',
+    );
+  }
+
   List<MoodModel> getDummyMoodHistory() {
     List<MoodModel> history = [];
     DateTime now = DateTime.now();
@@ -59,26 +69,24 @@ class DummyDataService {
 
     for (int i = 29; i >= 0; i--) {
       DateTime date = now.subtract(Duration(days: i));
-
       int moodIndex = _random.nextInt(moods.length);
 
-      // Random reasons (1-3 reasons)
-      List<String> allReasons = moodReasons;
-      allReasons.shuffle();
-      List<String> selectedReasons = allReasons.take(1 + _random.nextInt(3)).toList();
+      // Pick only the first reason
+      List<String> allReasons = moodReasons..shuffle();
+      String? reason = allReasons.isNotEmpty ? allReasons.first : null;
 
       history.add(MoodModel(
         id: 'mood_$i',
         timestamp: date,
         emoji: emojis[moodIndex],
-        moodLevel: moods[moodIndex],
-        reasons: selectedReasons,
+        reason: reason,
         note: _random.nextBool() ? 'Feeling ${moods[moodIndex]} today' : null,
       ));
     }
 
     return history;
   }
+
 
   // TODAY'S STEPS
   StepsModel getTodaySteps() {
@@ -91,17 +99,7 @@ class DummyDataService {
     );
   }
 
-  // TODAY'S MOOD (or null if not set yet)
-  MoodModel? getTodayMood() {
-    return MoodModel(
-      id: 'mood_today',
-      timestamp: DateTime.now(),
-      emoji: '😊',
-      moodLevel: 'happy',
-      reasons: ['Exercise', 'Sleep', 'Weather'],
-      note: 'Had a great workout!',
-    );
-  }
+
 
   // SCREEN TIME DATA (in minutes)
   int getScreenTime() {

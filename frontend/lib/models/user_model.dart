@@ -1,78 +1,101 @@
 class UserModel {
-  final String? id;
-  final String email;
+  final String id;
   final String username;
-  final int age;
-  final double weight; // in kg
-  final double height; // in cm
-  final String sex; // 'Male', 'Female'
-  final int targetSteps;
+  final String? email; // Make email nullable since profile API doesn't return it
   final String? photoUrl;
+  final int age;
+  final String gender;
+  final double height;
+  final double weight;
+  final int? targetSteps;
+  final DateTime? createdAt;
 
   UserModel({
-    this.id,
-    required this.email,
+    required this.id,
     required this.username,
-    required this.age,
-    required this.weight,
-    required this.height,
-    required this.sex,
-    this.targetSteps = 10000,
+    this.email, // Now nullable
     this.photoUrl,
+    required this.age,
+    required this.gender,
+    required this.height,
+    required this.weight,
+    this.targetSteps,
+    this.createdAt,
   });
 
-  /// Convert to JSON for API requests
-  Map<String, dynamic> toJson() {
-    return {
-      if (id != null) 'id': id,
-      'email': email,
-      'username': username,
-      'age': age,
-      'weight': weight,
-      'height': height,
-      'gender': sex, // Backend uses 'gender' not 'sex'
-      'targetSteps': targetSteps,
-      if (photoUrl != null) 'photoUrl': photoUrl,
-    };
-  }
-
-  /// Create from JSON (backend response)
+  /// Create UserModel from API response
   factory UserModel.fromJson(Map<String, dynamic> json) {
+    print('Parsing UserModel from JSON: $json'); // Debug print
+
     return UserModel(
-      id: json['id'] ?? json['_id'],
-      email: json['email'] ?? '',
+      id: json['userId'] ?? json['id'] ?? json['_id'] ?? '',
       username: json['username'] ?? 'User',
-      age: json['age'] ?? 25,
-      weight: (json['weight'] ?? 70).toDouble(),
-      height: (json['height'] ?? 170).toDouble(),
-      sex: json['gender'] ?? json['sex'] ?? 'Male', // Handle both field names
-      targetSteps: json['targetSteps'] ?? 10000,
+      email: json['email'], // Can be null
       photoUrl: json['photoUrl'],
+      age: _parseInt(json['age']) ?? 18,
+      gender: json['gender'] ?? 'Unknown',
+      height: _parseDouble(json['height']) ?? 170.0,
+      weight: _parseDouble(json['weight']) ?? 70.0,
+      targetSteps: _parseInt(json['targetSteps']),
+      createdAt: json['createdAt'] != null
+          ? DateTime.tryParse(json['createdAt'].toString())
+          : null,
     );
   }
 
-  /// Create a copy with updated fields
+  // Helper methods to safely parse numbers
+  static int? _parseInt(dynamic value) {
+    if (value == null) return null;
+    if (value is int) return value;
+    if (value is double) return value.toInt();
+    if (value is String) return int.tryParse(value);
+    return null;
+  }
+
+  static double? _parseDouble(dynamic value) {
+    if (value == null) return null;
+    if (value is double) return value;
+    if (value is int) return value.toDouble();
+    if (value is String) return double.tryParse(value);
+    return null;
+  }
+
+  /// Convert to JSON (for updates / profile creation)
+  Map<String, dynamic> toJson() {
+    return {
+      'username': username,
+      'photoUrl': photoUrl,
+      'age': age,
+      'gender': gender,
+      'height': height,
+      'weight': weight,
+    };
+  }
+
+  /// Copy with updated fields
   UserModel copyWith({
     String? id,
-    String? email,
     String? username,
-    int? age,
-    double? weight,
-    double? height,
-    String? sex,
-    int? targetSteps,
+    String? email,
     String? photoUrl,
+    int? age,
+    String? gender,
+    double? height,
+    double? weight,
+    int? targetSteps,
+    DateTime? createdAt,
   }) {
     return UserModel(
       id: id ?? this.id,
-      email: email ?? this.email,
       username: username ?? this.username,
-      age: age ?? this.age,
-      weight: weight ?? this.weight,
-      height: height ?? this.height,
-      sex: sex ?? this.sex,
-      targetSteps: targetSteps ?? this.targetSteps,
+      email: email ?? this.email,
       photoUrl: photoUrl ?? this.photoUrl,
+      age: age ?? this.age,
+      gender: gender ?? this.gender,
+      height: height ?? this.height,
+      weight: weight ?? this.weight,
+      targetSteps: targetSteps ?? this.targetSteps,
+      createdAt: createdAt ?? this.createdAt,
     );
   }
 }

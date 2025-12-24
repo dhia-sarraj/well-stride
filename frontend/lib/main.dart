@@ -16,33 +16,37 @@ void main() {
   runApp(WellStrideApp());
 }
 
-// Main app widget
-class WellStrideApp extends StatelessWidget {
+class WellStrideApp extends StatefulWidget {
+  @override
+  _WellStrideAppState createState() => _WellStrideAppState();
+}
+
+class _WellStrideAppState extends State<WellStrideApp> {
+  ThemeMode _themeMode = ThemeMode.system;
+
+  void updateTheme(ThemeMode mode) {
+    setState(() {
+      _themeMode = mode;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      // App name (appears in task switcher)
+
       title: 'WellStride',
-
-      // Remove debug banner in top-right corner
       debugShowCheckedModeBanner: false,
-
-      // Themes
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
-      themeMode: ThemeMode.system,
-
-      // Starting screen when app opens
+      themeMode: _themeMode,
       initialRoute: '/',
-
-      // All app routes (navigation paths)
       routes: {
         '/': (context) => SplashScreen(),
         '/welcome': (context) => WelcomeScreen(),
         '/signup': (context) => SignUpScreen(),
         '/signin': (context) => SignInScreen(),
         '/assessment': (context) => AssessmentScreen(),
-        '/home': (context) => MainNavigation(),
+        '/home': (context) => MainNavigation(onThemeChanged: updateTheme),
       },
     );
   }
