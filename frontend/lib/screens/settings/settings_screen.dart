@@ -106,23 +106,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
     try {
       print('Updating profile: ${updatedUser.username}');
 
-      // Update profile info
-      await _apiService.updateProfile(
+      // Update profile - the API now returns the updated profile directly
+      final updated = await _apiService.updateProfile(
         username: updatedUser.username,
         age: updatedUser.age,
         gender: updatedUser.gender,
         height: updatedUser.height,
         weight: updatedUser.weight,
+        goal: updatedUser.goal, // Changed from targetSteps
       );
 
-      // Update step goal if changed
-      if (_user != null &&
-          (_user!.targetSteps ?? 10000) != (updatedUser.targetSteps ?? 10000)) {
-        await _apiService.updateStepGoal(updatedUser.targetSteps ?? 10000);
-      }
-
       setState(() {
-        _user = updatedUser;
+        _user = updated;
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -392,7 +387,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 }
 
-// User Settings Sheet remains the same...
 class UserSettingsSheet extends StatefulWidget {
   final UserModel user;
   final Function(UserModel) onSave;
@@ -409,7 +403,7 @@ class _UserSettingsSheetState extends State<UserSettingsSheet> {
   late double _weight;
   late double _height;
   late String _sex;
-  late int _targetSteps;
+  late int _goal; // Changed from _targetSteps
 
   @override
   void initState() {
@@ -419,7 +413,7 @@ class _UserSettingsSheetState extends State<UserSettingsSheet> {
     _weight = widget.user.weight.toDouble();
     _height = widget.user.height.toDouble();
     _sex = widget.user.gender;
-    _targetSteps = widget.user.targetSteps ?? 10000;
+    _goal = widget.user.goal; // Changed from targetSteps
   }
 
   @override
@@ -442,7 +436,7 @@ class _UserSettingsSheetState extends State<UserSettingsSheet> {
       weight: _weight,
       height: _height,
       gender: _sex,
-      targetSteps: _targetSteps,
+      goal: _goal, // Changed from targetSteps
     );
 
     widget.onSave(updatedUser);
@@ -523,14 +517,14 @@ class _UserSettingsSheetState extends State<UserSettingsSheet> {
                     activeColor: Color(0xFFC16200),
                   ),
                   SizedBox(height: 16),
-                  Text('Target Steps: $_targetSteps', style: TextStyle(fontSize: 16, color: isDark ? Colors.white : Colors.black)),
+                  Text('Daily Step Goal: $_goal', style: TextStyle(fontSize: 16, color: isDark ? Colors.white : Colors.black)), // Changed label
                   Slider(
-                    value: _targetSteps.toDouble(),
+                    value: _goal.toDouble(), // Changed
                     min: 5000,
                     max: 20000,
                     divisions: 30,
-                    label: '$_targetSteps',
-                    onChanged: (value) => setState(() => _targetSteps = (value / 500).round() * 500),
+                    label: '$_goal', // Changed
+                    onChanged: (value) => setState(() => _goal = (value / 500).round() * 500), // Changed
                     activeColor: Color(0xFFC16200),
                   ),
                   SizedBox(height: 24),

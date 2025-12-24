@@ -36,37 +36,45 @@ class _FitnessScreenState extends State<FitnessScreen> {
     });
 
     try {
+      print('Fitness: Loading data...');
+
       // Load user profile
       final profile = await _apiService.getProfile();
+      print('Fitness: Profile loaded - Height: ${profile?.height}, Weight: ${profile?.weight}');
 
-      // Load today's steps
-      final steps = await _apiService.getTodaySteps();
+      // Load today's steps - allow null if not available
+      StepsModel? steps;
+      try {
+        steps = await _apiService.getTodaySteps();
+        print('Fitness: Steps loaded - ${steps?.steps ?? 0}');
+      } catch (e) {
+        print('Fitness: Steps not available, will use fallback: $e');
+      }
 
       // Request health permissions and get data
       final hasPermission = await _healthService.requestPermissions();
+      Map<String, dynamic> healthData = {};
+
       if (hasPermission) {
-        final healthData = await _healthService.getTodayHealthData();
-        setState(() {
-          _healthMetrics = healthData;
-        });
+        healthData = await _healthService.getTodayHealthData();
+        print('Fitness: Health data loaded: $healthData');
       } else {
-        // Use dummy data if no permissions
-        setState(() {
-          _healthMetrics = _dummyService.getHealthMetrics();
-        });
+        print('Fitness: Health permissions not granted, metrics will show "Tap to measure"');
       }
 
       setState(() {
         _user = profile ?? _dummyService.getDummyUser();
         _todaySteps = steps ?? _dummyService.getTodaySteps();
+        _healthMetrics = healthData;
         _isLoading = false;
       });
     } catch (e) {
-      print('Error loading fitness data: $e');
+      print('Fitness: Error loading data: $e');
+      // Use dummy data as fallback
       setState(() {
         _user = _dummyService.getDummyUser();
         _todaySteps = _dummyService.getTodaySteps();
-        _healthMetrics = _dummyService.getHealthMetrics();
+        _healthMetrics = {};
         _isLoading = false;
       });
     }
@@ -94,10 +102,17 @@ class _FitnessScreenState extends State<FitnessScreen> {
       setState(() {
         if (heartRate != null) {
           _healthMetrics['heartRate'] = heartRate;
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Heart rate data not available')),
+          );
         }
       });
     } catch (e) {
       print('Error measuring heart rate: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not access heart rate data')),
+      );
     } finally {
       setState(() {
         _isLoadingHeartRate = false;
@@ -115,10 +130,17 @@ class _FitnessScreenState extends State<FitnessScreen> {
       setState(() {
         if (oxygen != null) {
           _healthMetrics['oxygenLevel'] = oxygen;
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Oxygen level data not available')),
+          );
         }
       });
     } catch (e) {
       print('Error measuring oxygen: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not access oxygen data')),
+      );
     } finally {
       setState(() {
         _isLoadingOxygen = false;
@@ -126,19 +148,32 @@ class _FitnessScreenState extends State<FitnessScreen> {
     }
   }
 
-  void _measureStress() async {
+  Future<void> _measureStress() async {
     setState(() {
       _isLoadingStress = true;
     });
 
-    // Stress level is not available from health APIs
-    // Using dummy data
-    await Future.delayed(Duration(seconds: 1));
-
-    setState(() {
-      _healthMetrics['stressLevel'] = _dummyService.getHealthMetrics()['stressLevel'];
-      _isLoadingStress = false;
-    });
+    try {
+      final stressLevel = await _healthService.getStressLevel();
+      setState(() {
+        if (stressLevel != null) {
+          _healthMetrics['stressLevel'] = stressLevel;
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Stress data not available. Make sure Samsung Health is synced.')),
+          );
+        }
+      });
+    } catch (e) {
+      print('Error measuring stress: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not access stress data')),
+      );
+    } finally {
+      setState(() {
+        _isLoadingStress = false;
+      });
+    }
   }
 
   String _getSleepMessage(double hours) {
@@ -155,8 +190,11 @@ class _FitnessScreenState extends State<FitnessScreen> {
 
   double _calculateBMI() {
     if (_user == null) return 22.0;
+    print('Calculating BMI - Height: ${_user!.height}, Weight: ${_user!.weight}');
     double heightInMeters = _user!.height / 100;
-    return _user!.weight / (heightInMeters * heightInMeters);
+    double bmi = _user!.weight / (heightInMeters * heightInMeters);
+    print('BMI calculated: $bmi');
+    return bmi;
   }
 
   String _getBMICategory(double bmi) {
@@ -251,7 +289,7 @@ class _FitnessScreenState extends State<FitnessScreen> {
 
   Widget _buildStepsCard() {
     final steps = _todaySteps?.steps ?? 0;
-    final targetSteps = _todaySteps?.targetSteps ?? 10000;
+    final targetSteps = _todaySteps?.targetSteps ?? _user?.goal ?? 10000;
     final percentage = _todaySteps?.percentage ?? 0.0;
 
     return Container(
@@ -329,7 +367,7 @@ class _FitnessScreenState extends State<FitnessScreen> {
                     ),
                     Flexible(
                       child: Text(
-                        '${targetSteps - steps} left',
+                        '${(targetSteps - steps).clamp(0, targetSteps)} left',
                         style: TextStyle(color: Colors.white70, fontSize: 12),
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -566,6 +604,27 @@ class _FitnessScreenState extends State<FitnessScreen> {
   }
 
   Widget _buildStressCard() {
+    final stressLevel = _healthMetrics['stressLevel'];
+
+    // Color based on stress level
+    Color getStressColor(int? level) {
+      if (level == null) return Colors.grey;
+      if (level < 30) return Color(0xFF4CAF50); // Green - relaxed
+      if (level < 50) return Color(0xFF8BC34A); // Light green - normal
+      if (level < 70) return Color(0xFFFFC107); // Yellow - moderate
+      if (level < 85) return Color(0xFFFF9800); // Orange - stressed
+      return Color(0xFFE74C3C); // Red - very stressed
+    }
+
+    String getStressLabel(int? level) {
+      if (level == null) return 'Unknown';
+      if (level < 30) return 'Relaxed';
+      if (level < 50) return 'Normal';
+      if (level < 70) return 'Moderate';
+      if (level < 85) return 'Stressed';
+      return 'High';
+    }
+
     return Container(
       height: 180,
       decoration: BoxDecoration(
@@ -601,10 +660,28 @@ class _FitnessScreenState extends State<FitnessScreen> {
                     width: 24,
                     child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation<Color>(Colors.white)),
                   )
-                      : _healthMetrics['stressLevel'] != null
-                      ? Text(
-                    '${_healthMetrics['stressLevel']}/100',
-                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white),
+                      : stressLevel != null
+                      ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '$stressLevel/100',
+                        style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white),
+                      ),
+                      SizedBox(height: 4),
+                      Container(
+                        padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: getStressColor(stressLevel).withOpacity(0.3),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: getStressColor(stressLevel), width: 1),
+                        ),
+                        child: Text(
+                          getStressLabel(stressLevel),
+                          style: TextStyle(fontSize: 12, color: Colors.white, fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    ],
                   )
                       : Text('Tap to measure', style: TextStyle(fontSize: 16, color: Colors.white70)),
                 ],
@@ -645,15 +722,22 @@ class _FitnessScreenState extends State<FitnessScreen> {
               children: [
                 Text('Sleep', style: TextStyle(fontSize: 14, color: Colors.white70)),
                 SizedBox(height: 8),
-                Text(
-                  '${sleepHours.toStringAsFixed(1)}h',
-                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white),
-                ),
-                SizedBox(height: 4),
-                Text(
-                  _getSleepMessage(sleepHours),
-                  style: TextStyle(fontSize: 11, color: Colors.white70),
-                ),
+                sleepHours > 0
+                    ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '${sleepHours.toStringAsFixed(1)}h',
+                      style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white),
+                    ),
+                    SizedBox(height: 4),
+                    Text(
+                      _getSleepMessage(sleepHours),
+                      style: TextStyle(fontSize: 11, color: Colors.white70),
+                    ),
+                  ],
+                )
+                    : Text('No data yet', style: TextStyle(fontSize: 16, color: Colors.white70)),
               ],
             ),
           ],

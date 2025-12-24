@@ -21,7 +21,7 @@ class DummyDataService {
       weight: 88.0,
       height: 200.0,
       gender: 'Male',
-      targetSteps: 20000,
+      goal: 20000, // Changed from targetSteps
     );
   }
 
@@ -87,7 +87,6 @@ class DummyDataService {
     return history;
   }
 
-
   // TODAY'S STEPS
   StepsModel getTodaySteps() {
     return StepsModel(
@@ -98,8 +97,6 @@ class DummyDataService {
       activeMinutes: 72,
     );
   }
-
-
 
   // SCREEN TIME DATA (in minutes)
   int getScreenTime() {

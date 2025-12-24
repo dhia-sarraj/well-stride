@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wellstride/services/api_service.dart';
 import 'dart:async';
 import '../../services/dummy_data_service.dart';
 import '../../models/mood_model.dart';
@@ -785,7 +786,7 @@ class _BreathingTimerScreenState extends State<BreathingTimerScreen>
   }
 }
 
-// ANIMATED MYSTERY BOX DIALOG
+// ANIMATED MYSTERY BOX DIALOG - UPDATED TO USE API
 class MysteryBoxDialog extends StatefulWidget {
   final String? moodLevel;
 
@@ -797,8 +798,10 @@ class MysteryBoxDialog extends StatefulWidget {
 
 class _MysteryBoxDialogState extends State<MysteryBoxDialog>
     with SingleTickerProviderStateMixin {
+  final ApiService _apiService = ApiService(); // Add API service
   final DummyDataService _dataService = DummyDataService();
   bool _isRevealed = false;
+  bool _isLoading = false;
   String _quote = '';
   late AnimationController _animationController;
   late Animation<double> _scaleAnimation;
@@ -807,9 +810,6 @@ class _MysteryBoxDialogState extends State<MysteryBoxDialog>
   @override
   void initState() {
     super.initState();
-    _quote = widget.moodLevel != null
-        ? _dataService.getMoodBasedQuote(widget.moodLevel!)
-        : _dataService.getRandomQuote();
 
     _animationController = AnimationController(
       duration: Duration(milliseconds: 600),
@@ -831,10 +831,28 @@ class _MysteryBoxDialogState extends State<MysteryBoxDialog>
     super.dispose();
   }
 
-  void _revealQuote() {
+  Future<void> _revealQuote() async {
     setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      // Fetch quote from API
+      _quote = await _apiService.getRandomQuote();
+      print('Mystery box quote fetched: $_quote');
+    } catch (e) {
+      print('Error fetching quote from API: $e');
+      // Fallback to dummy quote
+      _quote = widget.moodLevel != null
+          ? _dataService.getMoodBasedQuote(widget.moodLevel!)
+          : _dataService.getRandomQuote();
+    }
+
+    setState(() {
+      _isLoading = false;
       _isRevealed = true;
     });
+
     _animationController.forward();
   }
 
@@ -883,7 +901,19 @@ class _MysteryBoxDialogState extends State<MysteryBoxDialog>
 
               SizedBox(height: 24),
 
-              if (!_isRevealed) ...[
+              if (_isLoading) ...[
+                CircularProgressIndicator(
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                ),
+                SizedBox(height: 16),
+                Text(
+                  'Fetching your quote...',
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: Colors.white70,
+                  ),
+                ),
+              ] else if (!_isRevealed) ...[
                 Text(
                   'Tap to reveal your inspirational quote',
                   textAlign: TextAlign.center,

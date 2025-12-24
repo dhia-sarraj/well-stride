@@ -1,44 +1,46 @@
 class UserModel {
   final String id;
   final String username;
-  final String? email; // Make email nullable since profile API doesn't return it
+  final String? email; // Nullable since profile API doesn't return it
   final String? photoUrl;
   final int age;
   final String gender;
   final double height;
   final double weight;
-  final int? targetSteps;
+  final int goal; // Changed from targetSteps to goal
   final DateTime? createdAt;
 
   UserModel({
     required this.id,
     required this.username,
-    this.email, // Now nullable
+    this.email,
     this.photoUrl,
     required this.age,
     required this.gender,
     required this.height,
     required this.weight,
-    this.targetSteps,
+    required this.goal, // Now required with default in fromJson
     this.createdAt,
   });
 
   /// Create UserModel from API response
   factory UserModel.fromJson(Map<String, dynamic> json) {
-    print('Parsing UserModel from JSON: $json'); // Debug print
+    print('Parsing UserModel from JSON: $json');
 
     return UserModel(
-      id: json['userId'] ?? json['id'] ?? json['_id'] ?? '',
+      id: json['user_id'] ?? json['userId'] ?? json['id'] ?? json['_id'] ?? '',
       username: json['username'] ?? 'User',
-      email: json['email'], // Can be null
-      photoUrl: json['photoUrl'],
+      email: json['email'],
+      photoUrl: json['photo_url'] ?? json['photoUrl'],
       age: _parseInt(json['age']) ?? 18,
       gender: json['gender'] ?? 'Unknown',
-      height: _parseDouble(json['height']) ?? 170.0,
-      weight: _parseDouble(json['weight']) ?? 70.0,
-      targetSteps: _parseInt(json['targetSteps']),
-      createdAt: json['createdAt'] != null
-          ? DateTime.tryParse(json['createdAt'].toString())
+      // Handle both height_cm and height field names, and string values
+      height: _parseDouble(json['height_cm'] ?? json['height']) ?? 170.0,
+      // Handle both weight_kg and weight field names, and string values
+      weight: _parseDouble(json['weight_kg'] ?? json['weight']) ?? 70.0,
+      goal: _parseInt(json['goal']) ?? 10000, // Changed from targetSteps
+      createdAt: json['created_at'] != null || json['createdAt'] != null
+          ? DateTime.tryParse((json['created_at'] ?? json['createdAt']).toString())
           : null,
     );
   }
@@ -69,6 +71,7 @@ class UserModel {
       'gender': gender,
       'height': height,
       'weight': weight,
+      'goal': goal, // Changed from targetSteps
     };
   }
 
@@ -82,7 +85,7 @@ class UserModel {
     String? gender,
     double? height,
     double? weight,
-    int? targetSteps,
+    int? goal, // Changed from targetSteps
     DateTime? createdAt,
   }) {
     return UserModel(
@@ -94,7 +97,7 @@ class UserModel {
       gender: gender ?? this.gender,
       height: height ?? this.height,
       weight: weight ?? this.weight,
-      targetSteps: targetSteps ?? this.targetSteps,
+      goal: goal ?? this.goal, // Changed from targetSteps
       createdAt: createdAt ?? this.createdAt,
     );
   }

@@ -52,15 +52,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
       if (fetchedProfile != null) {
         print('Profile fetched successfully: ${fetchedProfile.username}');
-
-        // FIXED: Use copyWith directly without json encoding/decoding
-        profile = fetchedProfile.copyWith(
-          username: fetchedProfile.username.isNotEmpty ? fetchedProfile.username : 'User',
-          age: fetchedProfile.age > 0 ? fetchedProfile.age : 18,
-          height: fetchedProfile.height > 0 ? fetchedProfile.height : 170,
-          weight: fetchedProfile.weight > 0 ? fetchedProfile.weight : 70,
-          gender: fetchedProfile.gender.isNotEmpty ? fetchedProfile.gender : 'Unknown',
-        );
+        profile = fetchedProfile;
       } else {
         print('No profile found in backend, using dummy data');
       }
@@ -114,9 +106,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
       print('Health data fetched - Steps: $steps, Active Minutes: $activeMinutes');
 
-      final targetSteps = (_user?.targetSteps != null && _user!.targetSteps! > 0)
-          ? _user!.targetSteps!
-          : 10000;
+      // Changed: use goal instead of targetSteps
+      final targetSteps = (_user?.goal ?? 10000);
 
       if (steps > 0) {
         // We have device step data, sync it to backend
@@ -266,7 +257,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final greeting = _getGreeting();
     final username = _user?.username ?? 'User';
     final steps = _todaySteps?.steps ?? 0;
-    final targetSteps = _todaySteps?.targetSteps ?? _user?.targetSteps ?? 10000;
+    final targetSteps = _todaySteps?.targetSteps ?? _user?.goal ?? 10000; // Changed
     final percentage = _todaySteps?.percentage ?? ((steps / targetSteps) * 100).clamp(0, 100);
 
     return Scaffold(

@@ -26,7 +26,7 @@ class ApiService {
     };
   }
 
-  // Handle API errors - IMPROVED
+  // Handle API errors
   String _handleError(http.Response response) {
     print('Response status: ${response.statusCode}');
     print('Response body: ${response.body}');
@@ -48,7 +48,6 @@ class ApiService {
         return error['message'] ?? error['error'] ?? 'An error occurred';
       }
     } catch (e) {
-      // If response body is not JSON
       if (response.statusCode == 401) {
         return 'Invalid email or password';
       }
@@ -118,14 +117,11 @@ class ApiService {
       if (response.statusCode == 200 || response.statusCode == 201) {
         final data = json.decode(response.body);
 
-        // Check if tokens exist in response
         if (data['accessToken'] == null || data['refreshToken'] == null) {
           print('Warning: Tokens not found in response');
-          print('Response data keys: ${data.keys}');
           throw Exception('Invalid response format from server');
         }
 
-        // Store tokens
         await _tokenService.saveTokens(
           accessToken: data['accessToken'],
           refreshToken: data['refreshToken'],
@@ -272,6 +268,7 @@ class ApiService {
     required String gender,
     required double height,
     required double weight,
+    int goal = 10000, // Changed from targetSteps, with default
   }) async {
     try {
       print('Creating profile for username: $username');
@@ -286,6 +283,7 @@ class ApiService {
           'gender': gender,
           'height': height,
           'weight': weight,
+          'goal': goal, // Changed from targetSteps
         }),
       );
 
@@ -316,7 +314,6 @@ class ApiService {
         headers: await _getHeaders(),
       );
 
-      // DEBUG PRINTS AS REQUESTED
       print('Profile API Response Status: ${response.statusCode}');
       print('Profile API Response Body: ${response.body}');
 
@@ -341,13 +338,14 @@ class ApiService {
   }
 
   /// Update user profile
-  Future<Map<String, dynamic>> updateProfile({
+  Future<UserModel> updateProfile({
     String? username,
     String? photoUrl,
     int? age,
     String? gender,
     double? height,
     double? weight,
+    int? goal, // Changed from targetSteps
   }) async {
     try {
       final body = <String, dynamic>{};
@@ -357,6 +355,7 @@ class ApiService {
       if (gender != null) body['gender'] = gender;
       if (height != null) body['height'] = height;
       if (weight != null) body['weight'] = weight;
+      if (goal != null) body['goal'] = goal; // Changed from targetSteps
 
       print('Updating profile with data: $body');
 
@@ -370,7 +369,8 @@ class ApiService {
       print('Update profile response body: ${response.body}');
 
       if (response.statusCode == 200 || response.statusCode == 201) {
-        return json.decode(response.body);
+        final data = json.decode(response.body);
+        return UserModel.fromJson(data); // Return the updated profile
       } else {
         throw Exception(_handleError(response));
       }
@@ -383,7 +383,7 @@ class ApiService {
     }
   }
 
-  ///Profile Photo
+  /// Profile Photo
   Future<String> uploadProfilePhoto(File imageFile) async {
     try {
       print('Uploading profile photo...');
@@ -467,7 +467,6 @@ class ApiService {
         headers: await _getHeaders(),
       );
 
-      // DEBUG PRINTS AS REQUESTED
       print('Steps API Response Status: ${response.statusCode}');
       print('Steps API Response Body: ${response.body}');
 
@@ -524,32 +523,6 @@ class ApiService {
       print('Get steps logs error: $e');
       if (e.toString().contains('Exception:')) rethrow;
       throw Exception('Failed to get step logs: ${e.toString()}');
-    }
-  }
-
-  /// Update step goal
-  Future<void> updateStepGoal(int goal) async {
-    try {
-      print('Updating step goal to: $goal');
-
-      final response = await http.patch(
-        Uri.parse('$baseUrl/steps/goal'),
-        headers: await _getHeaders(),
-        body: json.encode({'goal': goal}),
-      );
-
-      print('Update step goal response status: ${response.statusCode}');
-      print('Update step goal response body: ${response.body}');
-
-      if (response.statusCode != 200 && response.statusCode != 201) {
-        throw Exception(_handleError(response));
-      }
-    } catch (e) {
-      print('Update step goal error: $e');
-      if (e.toString().contains('Exception:')) {
-        rethrow;
-      }
-      throw Exception('Failed to update step goal: ${e.toString()}');
     }
   }
 

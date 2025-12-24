@@ -3,265 +3,220 @@ import 'package:permission_handler/permission_handler.dart';
 import 'dart:io' show Platform;
 
 class HealthService {
-  // Singleton pattern
-  static final HealthService _instance = HealthService._internal();
-  factory HealthService() => _instance;
-  HealthService._internal();
-
   final Health _health = Health();
 
-  /// All health data types we want to access
-  final List<HealthDataType> _types = [
+  // Add stress to your health types
+  static final List<HealthDataType> _healthTypes = [
     HealthDataType.STEPS,
-    HealthDataType.ACTIVE_ENERGY_BURNED,
     HealthDataType.HEART_RATE,
     HealthDataType.BLOOD_OXYGEN,
     HealthDataType.SLEEP_ASLEEP,
-    HealthDataType.SLEEP_AWAKE,
-    HealthDataType.SLEEP_IN_BED,
+    HealthDataType.ACTIVE_ENERGY_BURNED,
     HealthDataType.DISTANCE_DELTA,
     HealthDataType.FLIGHTS_CLIMBED,
+
+    // Samsung stress data (available via Health Connect)
+    HealthDataType.HEART_RATE_VARIABILITY_SDNN, // This is what Samsung uses for stress
   ];
 
-  /// Request health permissions
+  static final List<HealthDataAccess> _permissions = _healthTypes
+      .map((type) => HealthDataAccess.READ)
+      .toList();
+
+  /// Request all health permissions
   Future<bool> requestPermissions() async {
     try {
-      // Request activity recognition permission for Android
-      if (Platform.isAndroid) {
-        final status = await Permission.activityRecognition.request();
-        if (!status.isGranted) {
-          return false;
-        }
-      }
+      print('Requesting health permissions...');
 
-      // Request health data access
-      final permissions = _types.map((type) => HealthDataAccess.READ).toList();
-      final authorized = await _health.requestAuthorization(_types, permissions: permissions);
+      // Request Health Connect permissions
+      bool granted = await _health.requestAuthorization(_healthTypes, permissions: _permissions);
 
-      return authorized;
+      print('Health permissions granted: $granted');
+      return granted;
     } catch (e) {
       print('Error requesting health permissions: $e');
       return false;
     }
   }
 
-  /// Get steps for today
-  Future<int> getTodaySteps() async {
+  /// Get stress level from Samsung Health via Health Connect
+  /// Returns stress level 0-100 (0 = relaxed, 100 = very stressed)
+  Future<int?> getStressLevel() async {
+    try {
+      print('Fetching stress level from Samsung Health...');
+
+      final now = DateTime.now();
+      final startOfDay = DateTime(now.year, now.month, now.day);
+
+      // Get HRV data (Heart Rate Variability)
+      // Samsung calculates stress from HRV
+      List<HealthDataPoint> hrvData = await _health.getHealthDataFromTypes(
+        types: [HealthDataType.HEART_RATE_VARIABILITY_SDNN],
+        startTime: startOfDay,
+        endTime: now,
+      );
+
+      print('HRV data points found: ${hrvData.length}');
+
+      if (hrvData.isEmpty) {
+        print('No HRV/stress data available');
+        return null;
+      }
+
+      // Get the most recent HRV reading
+      final latestHRV = hrvData.last;
+      final hrvValue = double.tryParse(latestHRV.value.toString()) ?? 0;
+
+      print('Latest HRV value: $hrvValue ms');
+
+      // Convert HRV to stress level (inverse relationship)
+      // Higher HRV = lower stress
+      // Lower HRV = higher stress
+      // Typical HRV ranges: 20-200 ms (SDNN)
+      int stressLevel = _calculateStressFromHRV(hrvValue);
+
+      print('Calculated stress level: $stressLevel');
+      return stressLevel;
+
+    } catch (e) {
+      print('Error getting stress level: $e');
+      return null;
+    }
+  }
+
+  /// Convert HRV (SDNN) to stress level
+  /// HRV ranges typically 20-200ms
+  /// Higher HRV = More relaxed (lower stress)
+  /// Lower HRV = More stressed (higher stress)
+  int _calculateStressFromHRV(double hrv) {
+    if (hrv >= 100) return 20;  // Very relaxed
+    if (hrv >= 80) return 30;   // Relaxed
+    if (hrv >= 60) return 40;   // Slightly relaxed
+    if (hrv >= 50) return 50;   // Normal
+    if (hrv >= 40) return 60;   // Slightly stressed
+    if (hrv >= 30) return 70;   // Stressed
+    if (hrv >= 20) return 80;   // Very stressed
+    return 90;                   // Extremely stressed
+  }
+
+  /// Get today's health data (update to include stress)
+  Future<Map<String, dynamic>> getTodayHealthData() async {
     try {
       final now = DateTime.now();
-      final midnight = DateTime(now.year, now.month, now.day);
+      final startOfDay = DateTime(now.year, now.month, now.day);
 
-      final steps = await _health.getTotalStepsInInterval(midnight, now);
-      return steps ?? 0;
+      // Get all health data
+      List<HealthDataPoint> healthData = await _health.getHealthDataFromTypes(
+        types: _healthTypes,
+        startTime: startOfDay,
+        endTime: now,
+      );
+
+      print('Total health data points: ${healthData.length}');
+
+      // Process the data
+      int steps = 0;
+      int activeMinutes = 0;
+      double distanceMeters = 0;
+      int stairsClimbed = 0;
+      int caloriesEstimated = 0;
+      double? heartRate;
+      double? oxygenLevel;
+      double? sleepHours;
+      int? stressLevel;
+
+      for (var data in healthData) {
+        final value = double.tryParse(data.value.toString()) ?? 0;
+
+        switch (data.type) {
+          case HealthDataType.STEPS:
+            steps += value.toInt();
+            break;
+          case HealthDataType.HEART_RATE:
+            heartRate = value;
+            break;
+          case HealthDataType.BLOOD_OXYGEN:
+            oxygenLevel = value;
+            break;
+          case HealthDataType.ACTIVE_ENERGY_BURNED:
+            caloriesEstimated = value.toInt();
+            break;
+          case HealthDataType.DISTANCE_DELTA:
+            distanceMeters += value;
+            break;
+          case HealthDataType.FLIGHTS_CLIMBED:
+            stairsClimbed += value.toInt();
+            break;
+          case HealthDataType.SLEEP_ASLEEP:
+            final duration = data.dateTo.difference(data.dateFrom);
+            sleepHours = duration.inMinutes / 60.0;
+            break;
+          case HealthDataType.HEART_RATE_VARIABILITY_SDNN:
+            stressLevel = _calculateStressFromHRV(value);
+            break;
+          default:
+            break;
+        }
+      }
+
+      return {
+        'steps': steps,
+        'activeMinutes': activeMinutes,
+        'distanceMeters': distanceMeters,
+        'stairsClimbed': stairsClimbed,
+        'caloriesEstimated': caloriesEstimated,
+        'heartRate': heartRate?.round(),
+        'oxygenLevel': oxygenLevel?.round(),
+        'sleepHours': sleepHours,
+        'stressLevel': stressLevel, // NOW INCLUDED!
+        'source': 'HealthConnect',
+      };
     } catch (e) {
-      print('Error getting steps: $e');
-      return 0;
+      print('Error getting health data: $e');
+      return {};
     }
   }
 
-  /// Get steps for a specific date range
-  Future<int> getStepsInRange(DateTime start, DateTime end) async {
-    try {
-      final steps = await _health.getTotalStepsInInterval(start, end);
-      return steps ?? 0;
-    } catch (e) {
-      print('Error getting steps in range: $e');
-      return 0;
-    }
-  }
-
-  /// Get heart rate (most recent reading)
+  // Keep your existing methods for heart rate and blood oxygen
   Future<int?> getHeartRate() async {
     try {
       final now = DateTime.now();
-      final yesterday = now.subtract(Duration(days: 1));
+      final fiveMinutesAgo = now.subtract(Duration(minutes: 5));
 
-      final data = await _health.getHealthDataFromTypes(
-        startTime: yesterday,
-        endTime: now,
+      List<HealthDataPoint> hrData = await _health.getHealthDataFromTypes(
         types: [HealthDataType.HEART_RATE],
+        startTime: fiveMinutesAgo,
+        endTime: now,
       );
 
-      if (data.isNotEmpty) {
-        // Get the most recent heart rate reading
-        final latestReading = data.last;
-        return (latestReading.value as num).toInt();
-      }
-      return null;
+      if (hrData.isEmpty) return null;
+
+      final latestHR = hrData.last;
+      return double.tryParse(latestHR.value.toString())?.round();
     } catch (e) {
       print('Error getting heart rate: $e');
       return null;
     }
   }
 
-  /// Get blood oxygen level (most recent reading)
   Future<int?> getBloodOxygen() async {
     try {
       final now = DateTime.now();
-      final yesterday = now.subtract(Duration(days: 1));
+      final fiveMinutesAgo = now.subtract(Duration(minutes: 5));
 
-      final data = await _health.getHealthDataFromTypes(
-        startTime: yesterday,
-        endTime: now,
+      List<HealthDataPoint> o2Data = await _health.getHealthDataFromTypes(
         types: [HealthDataType.BLOOD_OXYGEN],
+        startTime: fiveMinutesAgo,
+        endTime: now,
       );
 
-      if (data.isNotEmpty) {
-        final latestReading = data.last;
-        return (latestReading.value as num).toInt();
-      }
-      return null;
+      if (o2Data.isEmpty) return null;
+
+      final latestO2 = o2Data.last;
+      return double.tryParse(latestO2.value.toString())?.round();
     } catch (e) {
       print('Error getting blood oxygen: $e');
       return null;
-    }
-  }
-
-  /// Get sleep hours for last night
-  Future<double> getSleepHours() async {
-    try {
-      final now = DateTime.now();
-      final yesterday = DateTime(now.year, now.month, now.day - 1, 18, 0);
-
-      final sleepData = await _health.getHealthDataFromTypes(
-        startTime: yesterday,
-        endTime: now,
-        types: [HealthDataType.SLEEP_ASLEEP, HealthDataType.SLEEP_IN_BED,],
-      );
-
-      if (sleepData.isEmpty) return 0;
-
-      // Calculate total sleep duration in hours
-      double totalMinutes = 0;
-      for (var data in sleepData) {
-        if (data.type == HealthDataType.SLEEP_ASLEEP) {
-          totalMinutes += (data.value as num).toDouble();
-        }
-      }
-
-      return totalMinutes / 60; // Convert to hours
-    } catch (e) {
-      print('Error getting sleep data: $e');
-      return 0;
-    }
-  }
-
-  /// Get distance walked today (in meters)
-  Future<double> getDistanceToday() async {
-    try {
-      final now = DateTime.now();
-      final midnight = DateTime(now.year, now.month, now.day);
-
-      final data = await _health.getHealthDataFromTypes(
-        startTime: midnight,
-        endTime: now,
-        types: [HealthDataType.DISTANCE_DELTA],
-      );
-
-      if (data.isEmpty) return 0;
-
-      double totalDistance = 0;
-      for (var point in data) {
-        totalDistance += (point.value as num).toDouble();
-      }
-
-      return totalDistance;
-    } catch (e) {
-      print('Error getting distance: $e');
-      return 0;
-    }
-  }
-
-  /// Get stairs/floors climbed today
-  Future<int> getStairsClimbedToday() async {
-    try {
-      final now = DateTime.now();
-      final midnight = DateTime(now.year, now.month, now.day);
-
-      final data = await _health.getHealthDataFromTypes(
-        startTime: midnight,
-        endTime: now,
-        types: [HealthDataType.FLIGHTS_CLIMBED],
-      );
-
-      if (data.isEmpty) return 0;
-
-      int totalFlights = 0;
-      for (var point in data) {
-        totalFlights += (point.value as num).toInt();
-      }
-
-      return totalFlights;
-    } catch (e) {
-      print('Error getting stairs: $e');
-      return 0;
-    }
-  }
-
-  /// Get calories burned today
-  Future<int> getCaloriesToday() async {
-    try {
-      final now = DateTime.now();
-      final midnight = DateTime(now.year, now.month, now.day);
-
-      final data = await _health.getHealthDataFromTypes(
-        startTime: midnight,
-        endTime: now,
-        types:[HealthDataType.ACTIVE_ENERGY_BURNED],
-      );
-
-      if (data.isEmpty) return 0;
-
-      double totalCalories = 0;
-      for (var point in data) {
-        totalCalories += (point.value as num).toDouble();
-      }
-
-      return totalCalories.toInt();
-    } catch (e) {
-      print('Error getting calories: $e');
-      return 0;
-    }
-  }
-
-  /// Get active minutes today
-  Future<int> getActiveMinutesToday() async {
-    try {
-      final steps = await getTodaySteps();
-      // Rough estimate: 100 steps = 1 active minute
-      return (steps / 100).round();
-    } catch (e) {
-      print('Error calculating active minutes: $e');
-      return 0;
-    }
-  }
-
-  /// Comprehensive health data for today
-  Future<Map<String, dynamic>> getTodayHealthData() async {
-    try {
-      final steps = await getTodaySteps();
-      final distance = await getDistanceToday();
-      final activeMinutes = await getActiveMinutesToday();
-      final stairs = await getStairsClimbedToday();
-      final calories = await getCaloriesToday();
-      final heartRate = await getHeartRate();
-      final oxygen = await getBloodOxygen();
-      final sleep = await getSleepHours();
-
-      return {
-        'steps': steps,
-        'distanceMeters': distance,
-        'activeMinutes': activeMinutes,
-        'stairsClimbed': stairs,
-        'caloriesEstimated': calories,
-        'heartRate': heartRate,
-        'oxygenLevel': oxygen,
-        'sleepHours': sleep,
-        'source': Platform.isIOS ? 'AppleHealth' : 'GoogleFit',
-      };
-    } catch (e) {
-      print('Error getting health data: $e');
-      return {};
     }
   }
 }
