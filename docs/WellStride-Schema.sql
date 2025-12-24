@@ -2,15 +2,14 @@
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 CREATE TYPE gender_enum AS ENUM ('Male', 'Female');
-CREATE TYPE mood_enum AS ENUM ('Sad', 'Meh', 'Okay', 'Happy', 'Awesome');
-CREATE TYPE step_source_enum AS ENUM ('Healthkit','Googlefit','Manual','Merged');
+CREATE TYPE mood_enum AS ENUM ('Happy', 'Calm', 'Neutral', 'Sad', 'Anxious');
+CREATE TYPE mood_reason_enum AS ENUM ('Work', 'Exercise', 'Sleep', 'Family', 'Friends', 'Health', 'Weather', 'Food', 'Stress', 'Relaxation', 'Other');
 CREATE TYPE pattern_enum AS ENUM ('Box', 'Relaxing', 'Energizing');
 CREATE TYPE notification_enum AS ENUM ('Progress', 'Motivational', 'Quote', 'Reminder');
 CREATE TYPE notification_status_enum AS ENUM ('Pending', 'Sent', 'Failed', 'Cancelled');
 CREATE TYPE export_status_enum AS ENUM ('Pending', 'Processing', 'Completed', 'Failed');
 CREATE TYPE user_provider AS ENUM ('Email', 'Google');
 CREATE TYPE export_format AS ENUM ('JSON', 'CSV');
-CREATE TYPE mood_score_enum AS ENUM ('1','2','3','4','5');
 
 -- Users
 CREATE TABLE users (
@@ -87,9 +86,8 @@ CREATE TABLE mood_entries (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     emoji mood_enum NOT NULL, 
-    mood_score mood_enum NOT NULL,
+    reason mood_reason_enum NOT NULL,
     note TEXT,
-    contextual_prompt TEXT,
     steps_at_time INTEGER,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
