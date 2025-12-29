@@ -1,7 +1,7 @@
 class MoodModel {
   final String? id;
   final DateTime timestamp;
-  final String emoji; // Backend enum: 'Sad', 'Meh', 'Okay', 'Happy', 'Awesome'
+  final String emoji;
   final String? reason; // Backend single reason field
   final String? note;
   final int? stepsAtTime;
@@ -10,15 +10,15 @@ class MoodModel {
   // Derived property for internal use
   String get moodLevel {
     switch (emoji.toLowerCase()) {
-      case 'awesome':
-        return 'happy';
       case 'happy':
+        return 'happy';
+      case 'calm':
         return 'calm';
-      case 'okay':
+      case 'neutral':
         return 'neutral';
-      case 'meh':
-        return 'sad';
       case 'sad':
+        return 'sad';
+      case 'anxious':
         return 'anxious';
       default:
         return 'neutral';
@@ -49,7 +49,7 @@ class MoodModel {
 
   /// Create from JSON (backend response)
   factory MoodModel.fromJson(Map<String, dynamic> json) {
-    print('Parsing MoodModel from JSON: $json'); // Debug print
+    print('Parsing MoodModel from JSON: $json');
 
     return MoodModel(
       id: json['id'] ?? json['_id'],
@@ -116,14 +116,14 @@ class MoodOption {
 }
 
 final List<MoodOption> moodOptions = [
-  MoodOption(emoji: '😊', label: 'Awesome', backendValue: 'Awesome'),
-  MoodOption(emoji: '😌', label: 'Happy', backendValue: 'Happy'),
-  MoodOption(emoji: '😐', label: 'Okay', backendValue: 'Okay'),
-  MoodOption(emoji: '😔', label: 'Meh', backendValue: 'Meh'),
-  MoodOption(emoji: '😰', label: 'Sad', backendValue: 'Sad'),
+  MoodOption(emoji: '😊', label: 'Happy', backendValue: 'Happy'),
+  MoodOption(emoji: '😌', label: 'Calm', backendValue: 'Calm'),
+  MoodOption(emoji: '😐', label: 'Neutral', backendValue: 'Neutral'),
+  MoodOption(emoji: '😔', label: 'Sad', backendValue: 'Sad'),
+  MoodOption(emoji: '😰', label: 'Anxious', backendValue: 'Anxious'),
 ];
 
-// Reason options - Backend only accepts one reason
+// Reason options - Backend only accepts one reason - ADDED "Others"
 final List<String> moodReasons = [
   'Work',
   'Exercise',
@@ -135,4 +135,5 @@ final List<String> moodReasons = [
   'Food',
   'Stress',
   'Relaxation',
+  'Others',
 ];

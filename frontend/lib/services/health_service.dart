@@ -1,5 +1,7 @@
 import 'package:health/health.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:rook_sdk_core/rook_sdk_core.dart';
+import 'package:rook_sdk_samsung_health/rook_sdk_samsung_health.dart';
 import 'dart:io' show Platform;
 
 class HealthService {
@@ -43,41 +45,10 @@ class HealthService {
   /// Returns stress level 0-100 (0 = relaxed, 100 = very stressed)
   Future<int?> getStressLevel() async {
     try {
-      print('Fetching stress level from Samsung Health...');
-
-      final now = DateTime.now();
-      final startOfDay = DateTime(now.year, now.month, now.day);
-
-      // Get HRV data (Heart Rate Variability)
-      // Samsung calculates stress from HRV
-      List<HealthDataPoint> hrvData = await _health.getHealthDataFromTypes(
-        types: [HealthDataType.HEART_RATE_VARIABILITY_SDNN],
-        startTime: startOfDay,
-        endTime: now,
-      );
-
-      print('HRV data points found: ${hrvData.length}');
-
-      if (hrvData.isEmpty) {
-        print('No HRV/stress data available');
-        return null;
-      }
-
-      // Get the most recent HRV reading
-      final latestHRV = hrvData.last;
-      final hrvValue = double.tryParse(latestHRV.value.toString()) ?? 0;
-
-      print('Latest HRV value: $hrvValue ms');
-
-      // Convert HRV to stress level (inverse relationship)
-      // Higher HRV = lower stress
-      // Lower HRV = higher stress
-      // Typical HRV ranges: 20-200 ms (SDNN)
-      int stressLevel = _calculateStressFromHRV(hrvValue);
-
-      print('Calculated stress level: $stressLevel');
-      return stressLevel;
-
+      print('Note: Stress measurement requires Samsung Health SDK integration');
+      print('Health Connect does not yet support HRV data from Samsung devices');
+      // Return null to show "Tap to measure" with explanation
+      return null;
     } catch (e) {
       print('Error getting stress level: $e');
       return null;
@@ -181,16 +152,19 @@ class HealthService {
   Future<int?> getHeartRate() async {
     try {
       final now = DateTime.now();
-      final fiveMinutesAgo = now.subtract(Duration(minutes: 5));
+      // Expanded time window: look at today's data
+      final startOfToday = DateTime(now.year, now.month, now.day);
 
       List<HealthDataPoint> hrData = await _health.getHealthDataFromTypes(
         types: [HealthDataType.HEART_RATE],
-        startTime: fiveMinutesAgo,
+        startTime: startOfToday,
         endTime: now,
       );
 
+      print('Heart rate data points found: ${hrData.length}');
       if (hrData.isEmpty) return null;
 
+      // Get the most recent reading
       final latestHR = hrData.last;
       return double.tryParse(latestHR.value.toString())?.round();
     } catch (e) {
@@ -217,6 +191,21 @@ class HealthService {
     } catch (e) {
       print('Error getting blood oxygen: $e');
       return null;
+    }
+  }
+
+  Future<void> debugHealthConnectStatus() async {
+    print('=== Health Connect Debug ===');
+    print('Has Activity Recognition: ${await Permission.activityRecognition.isGranted}');
+    print('Has Location: ${await Permission.location.isGranted}');
+
+    // Try to check Health Connect availability
+    bool available = await _health.hasPermissions(_healthTypes, permissions: _permissions) ?? false;
+    print('Health Connect available: $available');
+
+    // List what permissions are granted
+    for (var type in _healthTypes) {
+      print('$type: checking...');
     }
   }
 }

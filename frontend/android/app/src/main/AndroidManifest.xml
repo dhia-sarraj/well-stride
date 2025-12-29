@@ -2,11 +2,24 @@
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- Application Component -->
+    <!-- Samsung Health Permissions -->
+    <uses-permission android:name="com.samsung.android.providers.health.permission.READ" />
+
+    <!-- Activity Recognition -->
+    <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION"/>
+
+    <!-- Location (sometimes needed for health data) -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+
+    <!-- Screen Time Permission -->
+    <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS"
+        tools:ignore="ProtectedPermissions"/>
+
     <application
         android:label="WellStride"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
+
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -16,108 +29,30 @@
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
             android:hardwareAccelerated="true"
             android:windowSoftInputMode="adjustResize">
-            <!-- Specifies an Android theme to apply to this Activity as soon as
-                 the Android process has started. This theme is visible to the user
-                 while the Flutter UI initializes. After that, this theme continues
-                 to determine the Window background behind the Flutter UI. -->
+
             <meta-data
                 android:name="io.flutter.embedding.android.NormalTheme"
                 android:resource="@style/NormalTheme"
                 />
+
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
-        <!-- Don't delete the meta-data below.
-             This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
+
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
     </application>
 
-    <!-- Required to query activities that can process text -->
     <queries>
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
         </intent>
+
+        <!-- Query for Samsung Health -->
+        <package android:name="com.sec.android.app.shealth" />
     </queries>
-
-    <!-- ============================================ -->
-    <!-- HEALTH & FITNESS PERMISSIONS -->
-    <!-- ============================================ -->
-
-    <!-- Activity Recognition (for step counting) -->
-    <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION"/>
-
-    <!-- Location (sometimes needed for fitness tracking) -->
-    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
-    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
-
-    <!-- Health Connect Permissions (Android 14+) -->
-    <!-- These are the new unified health permissions -->
-    <uses-permission android:name="android.permission.health.READ_HEART_RATE"/>
-    <uses-permission android:name="android.permission.health.READ_STEPS"/>
-    <uses-permission android:name="android.permission.health.READ_DISTANCE"/>
-    <uses-permission android:name="android.permission.health.READ_ACTIVE_CALORIES_BURNED"/>
-    <uses-permission android:name="android.permission.health.READ_BLOOD_OXYGEN"/>
-    <uses-permission android:name="android.permission.health.READ_SLEEP"/>
-    <uses-permission android:name="android.permission.health.READ_EXERCISE"/>
-    <uses-permission android:name="android.permission.health.READ_HEART_RATE_VARIABILITY"/>
-
-    <!-- Body Sensors (for heart rate, etc. on older Android versions) -->
-    <uses-permission android:name="android.permission.BODY_SENSORS"/>
-
-    <!-- ============================================ -->
-    <!-- SCREEN TIME PERMISSIONS -->
-    <!-- ============================================ -->
-
-    <!-- Usage Stats (for screen time tracking) -->
-    <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS"
-        tools:ignore="ProtectedPermissions"/>
-
-    <!-- ============================================ -->
-    <!-- INTERNET & NETWORK PERMISSIONS -->
-    <!-- ============================================ -->
-
-    <!-- Required for API calls -->
-    <uses-permission android:name="android.permission.INTERNET"/>
-    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
-
-    <!-- ============================================ -->
-    <!-- STORAGE PERMISSIONS (for profile photos) -->
-    <!-- ============================================ -->
-
-    <!-- For reading images from gallery -->
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
-        android:maxSdkVersion="32" />
-
-    <!-- For Android 13+ (Tiramisu) -->
-    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>
-
-    <!-- For capturing photos with camera -->
-    <uses-permission android:name="android.permission.CAMERA"/>
-
-    <!-- ============================================ -->
-    <!-- NOTIFICATION PERMISSIONS -->
-    <!-- ============================================ -->
-
-    <!-- For push notifications (Android 13+) -->
-    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
-
-    <!-- Wake lock (for background tasks) -->
-    <uses-permission android:name="android.permission.WAKE_LOCK"/>
-
-    <!-- ============================================ -->
-    <!-- FEATURE REQUIREMENTS -->
-    <!-- ============================================ -->
-
-    <!-- Declare features (optional but recommended) -->
-    <uses-feature android:name="android.hardware.sensor.stepdetector" android:required="false"/>
-    <uses-feature android:name="android.hardware.sensor.stepcounter" android:required="false"/>
-    <uses-feature android:name="android.hardware.sensor.heartrate" android:required="false"/>
-    <uses-feature android:name="android.hardware.camera" android:required="false"/>
-    <uses-feature android:name="android.hardware.camera.autofocus" android:required="false"/>
-
 </manifest>

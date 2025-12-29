@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:wellstride/services/api_service.dart';
+import '../../services/api_service.dart';
 import 'dart:async';
 import '../../services/dummy_data_service.dart';
 import '../../models/mood_model.dart';
@@ -10,13 +10,30 @@ class MentalScreen extends StatefulWidget {
 }
 
 class _MentalScreenState extends State<MentalScreen> {
+  final ApiService _apiService = ApiService();
   final DummyDataService _dataService = DummyDataService();
   MoodModel? _todayMood;
 
   @override
   void initState() {
     super.initState();
-    _todayMood = _dataService.getTodayMood();
+    _loadTodayMood();
+  }
+
+  Future<void> _loadTodayMood() async {
+    try {
+      final mood = await _apiService.getTodayMood();
+      setState(() {
+        _todayMood = mood;
+      });
+      print('Loaded mood from backend: ${mood?.emoji}');
+    } catch (e) {
+      print('Error loading mood: $e');
+      // Fallback to dummy data if API fails
+      setState(() {
+        _todayMood = _dataService.getTodayMood();
+      });
+    }
   }
 
   void _openMoodTracker() {
@@ -25,10 +42,29 @@ class _MentalScreenState extends State<MentalScreen> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => MoodTrackerSheet(
-        onMoodSelected: (mood) {
-          setState(() {
-            _todayMood = mood;
-          });
+        onMoodSelected: (mood) async {
+          // Save to backend first
+          try {
+            await _apiService.addMood(mood);
+            print('Mood saved to backend successfully');
+
+            // Reload from backend to get the complete mood with ID
+            await _loadTodayMood();
+
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Mood saved successfully!')),
+            );
+          } catch (e) {
+            print('Error saving mood to backend: $e');
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Failed to save mood. Please try again.')),
+            );
+
+            // Still update local state as fallback
+            setState(() {
+              _todayMood = mood;
+            });
+          }
         },
       ),
     );
@@ -126,7 +162,7 @@ class _MentalScreenState extends State<MentalScreen> {
         onTap: _openMoodTracker,
         borderRadius: BorderRadius.circular(20),
         child: Container(
-          height: 220,
+          height: 240, // Increased height to accommodate note
           padding: EdgeInsets.all(20),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(20),
@@ -206,6 +242,20 @@ class _MentalScreenState extends State<MentalScreen> {
                               materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                             );
                           }).toList(),
+                        ),
+                      ],
+                      // ADDED: Show note if exists
+                      if (_todayMood!.note != null && _todayMood!.note!.isNotEmpty) ...[
+                        SizedBox(height: 8),
+                        Text(
+                          '"${_todayMood!.note}"',
+                          style: TextStyle(
+                            color: Colors.white70,
+                            fontSize: 12,
+                            fontStyle: FontStyle.italic,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ],
                     ],
@@ -442,16 +492,39 @@ class _MoodTrackerSheetState extends State<MoodTrackerSheet> {
       return;
     }
 
-    String emoji = mapMoodLevelToEmoji(_selectedMoodLevel!);
-    String? reason = _selectedReasons.isNotEmpty ? _selectedReasons.first : null;
+    // FIXED: Map mood level to backend enum value correctly
+    String backendEmoji;
+    switch (_selectedMoodLevel!) {
+      case 'happy':
+        backendEmoji = 'Happy';
+        break;
+      case 'calm':
+        backendEmoji = 'Calm';
+        break;
+      case 'neutral':
+        backendEmoji = 'Neutral';
+        break;
+      case 'sad':
+        backendEmoji = 'Sad';
+        break;
+      case 'anxious':
+        backendEmoji = 'Anxious';
+        break;
+      default:
+        backendEmoji = 'Neutral';
+    }
 
+    String? reason = _selectedReasons.isNotEmpty ? _selectedReasons.first : null;
+    String? note = _noteController.text.isEmpty ? null : _noteController.text;
+
+    print('Saving mood: emoji=$backendEmoji, reason=$reason, note=$note');
 
     MoodModel mood = MoodModel(
       id: 'mood_${DateTime.now().millisecondsSinceEpoch}',
       timestamp: DateTime.now(),
-      emoji: emoji,
+      emoji: backendEmoji, // Use backend enum value
       reason: reason,
-      note: _noteController.text.isEmpty ? null : _noteController.text,
+      note: note,
     );
 
     widget.onMoodSelected(mood);

@@ -1,5 +1,9 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:image_picker/image_picker.dart';
+import 'dart:io';
 import '../../services/api_service.dart';
 import '../../models/user_model.dart';
 
@@ -14,8 +18,10 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   final ApiService _apiService = ApiService();
+  final ImagePicker _imagePicker = ImagePicker();
   UserModel? _user;
   bool _isLoading = true;
+  bool _isUploadingPhoto = false;
   String? _errorMessage;
 
   String _selectedTheme = 'System';
@@ -85,6 +91,72 @@ class _SettingsScreenState extends State<SettingsScreen> {
     await prefs.setBool('notifications', enabled);
   }
 
+  // NEW: Change profile photo
+  Future<void> _changeProfilePhoto() async {
+    final ImageSource? source = await showDialog<ImageSource>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Choose Photo Source'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: Icon(Icons.camera_alt),
+              title: Text('Take Photo'),
+              onTap: () => Navigator.pop(context, ImageSource.camera),
+            ),
+            ListTile(
+              leading: Icon(Icons.photo_library),
+              title: Text('Choose from Gallery'),
+              onTap: () => Navigator.pop(context, ImageSource.gallery),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (source == null) return;
+
+    try {
+      final XFile? image = await _imagePicker.pickImage(
+        source: source,
+        maxWidth: 512,
+        maxHeight: 512,
+        imageQuality: 85,
+      );
+
+      if (image == null) return;
+
+      setState(() {
+        _isUploadingPhoto = true;
+      });
+
+      final photoUrl = await _apiService.uploadProfilePhoto(File(image.path));
+
+      // Refresh profile to get updated photo
+      await _loadProfile();
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Profile photo updated successfully'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      print('Error uploading photo: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to upload photo: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      setState(() {
+        _isUploadingPhoto = false;
+      });
+    }
+  }
+
   void _editUserSettings() {
     if (_user == null) return;
 
@@ -106,14 +178,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
     try {
       print('Updating profile: ${updatedUser.username}');
 
-      // Update profile - the API now returns the updated profile directly
       final updated = await _apiService.updateProfile(
         username: updatedUser.username,
         age: updatedUser.age,
         gender: updatedUser.gender,
         height: updatedUser.height,
         weight: updatedUser.weight,
-        goal: updatedUser.goal, // Changed from targetSteps
+        goal: updatedUser.goal,
       );
 
       setState(() {
@@ -133,6 +204,127 @@ class _SettingsScreenState extends State<SettingsScreen> {
           content: Text('Failed to update profile: ${e.toString()}'),
           backgroundColor: Colors.red,
         ),
+      );
+    }
+  }
+
+  // NEW: Export data
+  Future<void> _exportData() async {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Export Your Data'),
+        content: Text('This feature will export all your health and mood data. Coming soon!'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // NEW: Privacy policy
+  void _showPrivacyPolicy() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Privacy Policy'),
+        content: SingleChildScrollView(
+          child: Text(
+            'WellStride Privacy Policy\n\n'
+                '1. Data Collection: We collect health data, mood entries, and step counts to provide personalized insights.\n\n'
+                '2. Data Usage: Your data is used solely to improve your wellness experience.\n\n'
+                '3. Data Security: All data is encrypted and stored securely.\n\n'
+                '4. Third Party: We do not share your data with third parties.\n\n'
+                '5. Your Rights: You can export or delete your data at any time.\n\n'
+                'For more information, contact support@wellstride.com',
+            style: TextStyle(height: 1.5),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // NEW: Logout
+  Future<void> _logout() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Logout'),
+        content: Text('Are you sure you want to logout?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: Text('Logout'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      await _apiService.logout();
+      // Navigate to welcome screen
+      Navigator.of(context).pushNamedAndRemoveUntil('/welcome', (route) => false);
+    } catch (e) {
+      print('Logout error: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to logout: ${e.toString()}')),
+      );
+    }
+  }
+
+  // NEW: Delete account
+  Future<void> _deleteAccount() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Delete Account', style: TextStyle(color: Colors.red)),
+        content: Text(
+          'Are you absolutely sure? This action cannot be undone. All your data will be permanently deleted.',
+          style: TextStyle(color: Colors.red.shade700),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.white,
+              backgroundColor: Colors.red,
+            ),
+            child: Text('Delete Forever'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      await _apiService.deleteAccount();
+      // Navigate to welcome screen
+      Navigator.of(context).pushNamedAndRemoveUntil('/welcome', (route) => false);
+    } catch (e) {
+      print('Delete account error: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to delete account: ${e.toString()}')),
       );
     }
   }
@@ -245,46 +437,92 @@ class _SettingsScreenState extends State<SettingsScreen> {
           : ListView(
         padding: EdgeInsets.all(20),
         children: [
-          // User profile card
+          // User profile card - NOW CLICKABLE
           Card(
             elevation: 2,
             color: isDark ? Color(0xFF16213E) : Colors.white,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            child: Padding(
-              padding: EdgeInsets.all(20),
-              child: Row(
-                children: [
-                  CircleAvatar(
-                    radius: 30,
-                    backgroundColor: Color(0xFFC16200),
-                    backgroundImage: (_user?.photoUrl != null && _user!.photoUrl!.isNotEmpty)
-                        ? NetworkImage(_user!.photoUrl!)
-                        : null,
-                    child: (_user?.photoUrl == null || _user!.photoUrl!.isEmpty)
-                        ? Text(
-                      _user!.username[0].toUpperCase(),
-                      style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white),
-                    )
-                        : null,
-                  ),
-                  SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+            child: InkWell(
+              onTap: _changeProfilePhoto,
+              borderRadius: BorderRadius.circular(16),
+              child: Padding(
+                padding: EdgeInsets.all(20),
+                child: Row(
+                  children: [
+                    Stack(
                       children: [
-                        Text(
-                          _user!.username,
-                          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black),
+                        CircleAvatar(
+                          radius: 30,
+                          backgroundColor: Color(0xFFC16200),
+                          backgroundImage: (_user?.photoUrl != null && _user!.photoUrl!.isNotEmpty)
+                              ? (_user!.photoUrl!.startsWith('data:image')
+                                ? MemoryImage(base64Decode(_user!.photoUrl!.split(',')[1]))
+                                : NetworkImage(_user!.photoUrl!)) as ImageProvider
+                              : null,
+                          child: (_user?.photoUrl == null || _user!.photoUrl!.isEmpty)
+                              ? Text(
+                            _user!.username[0].toUpperCase(),
+                            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white),
+                          )
+                              : null,
                         ),
-                        SizedBox(height: 4),
-                        Text(
-                          _user!.email ?? 'No email',
-                          style: TextStyle(fontSize: 14, color: isDark ? Colors.white70 : Colors.grey.shade600),
+                        if (_isUploadingPhoto)
+                          Positioned.fill(
+                            child: Container(
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: Colors.black54,
+                              ),
+                              child: Center(
+                                child: SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        Positioned(
+                          bottom: 0,
+                          right: 0,
+                          child: Container(
+                            padding: EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                              color: Color(0xFFC16200),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(Icons.camera_alt, size: 16, color: Colors.white),
+                          ),
                         ),
                       ],
                     ),
-                  ),
-                ],
+                    SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _user!.username,
+                            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black),
+                          ),
+                          SizedBox(height: 4),
+                          Text(
+                            _user!.email ?? 'No email',
+                            style: TextStyle(fontSize: 14, color: isDark ? Colors.white70 : Colors.grey.shade600),
+                          ),
+                          SizedBox(height: 4),
+                          Text(
+                            'Tap to change photo',
+                            style: TextStyle(fontSize: 12, color: Color(0xFFC16200)),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -326,6 +564,44 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 _notificationsEnabled = val;
               });
             },
+            isDark: isDark,
+          ),
+
+          SizedBox(height: 16),
+          Divider(),
+          SizedBox(height: 16),
+
+          // NEW OPTIONS
+          _buildSettingsTile(
+            icon: Icons.download,
+            title: 'Export Data',
+            subtitle: 'Download all your data',
+            onTap: _exportData,
+            isDark: isDark,
+          ),
+
+          _buildSettingsTile(
+            icon: Icons.privacy_tip,
+            title: 'Privacy Policy',
+            subtitle: 'View our privacy policy',
+            onTap: _showPrivacyPolicy,
+            isDark: isDark,
+          ),
+
+          _buildSettingsTile(
+            icon: Icons.logout,
+            title: 'Logout',
+            subtitle: 'Sign out of your account',
+            onTap: _logout,
+            isDark: isDark,
+          ),
+
+          _buildSettingsTile(
+            icon: Icons.delete_forever,
+            title: 'Delete Account',
+            subtitle: 'Permanently delete your account',
+            onTap: _deleteAccount,
+            isDestructive: true,
             isDark: isDark,
           ),
         ],
@@ -387,6 +663,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 }
 
+// UserSettingsSheet remains the same...
 class UserSettingsSheet extends StatefulWidget {
   final UserModel user;
   final Function(UserModel) onSave;
@@ -403,7 +680,7 @@ class _UserSettingsSheetState extends State<UserSettingsSheet> {
   late double _weight;
   late double _height;
   late String _sex;
-  late int _goal; // Changed from _targetSteps
+  late int _goal;
 
   @override
   void initState() {
@@ -413,7 +690,7 @@ class _UserSettingsSheetState extends State<UserSettingsSheet> {
     _weight = widget.user.weight.toDouble();
     _height = widget.user.height.toDouble();
     _sex = widget.user.gender;
-    _goal = widget.user.goal; // Changed from targetSteps
+    _goal = widget.user.goal;
   }
 
   @override
@@ -436,7 +713,7 @@ class _UserSettingsSheetState extends State<UserSettingsSheet> {
       weight: _weight,
       height: _height,
       gender: _sex,
-      goal: _goal, // Changed from targetSteps
+      goal: _goal,
     );
 
     widget.onSave(updatedUser);
@@ -517,14 +794,14 @@ class _UserSettingsSheetState extends State<UserSettingsSheet> {
                     activeColor: Color(0xFFC16200),
                   ),
                   SizedBox(height: 16),
-                  Text('Daily Step Goal: $_goal', style: TextStyle(fontSize: 16, color: isDark ? Colors.white : Colors.black)), // Changed label
+                  Text('Daily Step Goal: $_goal', style: TextStyle(fontSize: 16, color: isDark ? Colors.white : Colors.black)),
                   Slider(
-                    value: _goal.toDouble(), // Changed
+                    value: _goal.toDouble(),
                     min: 5000,
                     max: 20000,
                     divisions: 30,
-                    label: '$_goal', // Changed
-                    onChanged: (value) => setState(() => _goal = (value / 500).round() * 500), // Changed
+                    label: '$_goal',
+                    onChanged: (value) => setState(() => _goal = (value / 500).round() * 500),
                     activeColor: Color(0xFFC16200),
                   ),
                   SizedBox(height: 24),

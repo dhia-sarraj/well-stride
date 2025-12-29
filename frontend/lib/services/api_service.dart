@@ -383,31 +383,44 @@ class ApiService {
     }
   }
 
-  /// Profile Photo
+  /// Upload profile photo
+  /// Converts image to base64 data URL and updates profile
   Future<String> uploadProfilePhoto(File imageFile) async {
     try {
       print('Uploading profile photo...');
 
-      var request = http.MultipartRequest(
-        'POST',
-        Uri.parse('$baseUrl/profile/me/photo'),
-      );
-      request.headers.addAll(await _getHeaders());
-      request.files.add(await http.MultipartFile.fromPath('photo', imageFile.path));
+      // Read image as bytes
+      final bytes = await imageFile.readAsBytes();
 
-      var response = await request.send();
+      // Convert to base64
+      final base64Image = base64Encode(bytes);
 
-      print('Upload photo response status: ${response.statusCode}');
-
-      if (response.statusCode == 200) {
-        var data = json.decode(await response.stream.bytesToString());
-        print('Photo uploaded successfully: ${data['photoUrl']}');
-        return data['photoUrl'];
+      // Determine image type from file extension
+      final extension = imageFile.path.split('.').last.toLowerCase();
+      String mimeType;
+      if (extension == 'png') {
+        mimeType = 'image/png';
+      } else if (extension == 'jpg' || extension == 'jpeg') {
+        mimeType = 'image/jpeg';
+      } else if (extension == 'gif') {
+        mimeType = 'image/gif';
+      } else {
+        mimeType = 'image/jpeg'; // Default
       }
-      throw Exception('Photo upload failed');
+
+      // Create data URL
+      final photoUrl = 'data:$mimeType;base64,$base64Image';
+
+      print('Image converted to base64 (${bytes.length} bytes)');
+      print('PhotoUrl length: ${photoUrl.length} characters');
+
+      // Update profile with the base64 data URL
+      await updateProfile(photoUrl: photoUrl);
+
+      return photoUrl;
     } catch (e) {
       print('Photo upload error: $e');
-      throw Exception('Photo upload failed');
+      throw Exception('Photo upload failed: ${e.toString()}');
     }
   }
 
@@ -630,17 +643,64 @@ class ApiService {
     }
   }
 
-  /// Get today's mood (helper method)
+  /// Add a mood record
+  Future<MoodModel> addMood(MoodModel mood) async {
+    try {
+      print('Adding mood to backend: ${mood.toJson()}');
+
+      final response = await http.post(
+        Uri.parse('$baseUrl/moods'),
+        headers: await _getHeaders(),
+        body: jsonEncode(mood.toJson()),
+      );
+
+      print('Add mood response status: ${response.statusCode}');
+      print('Add mood response body: ${response.body}');
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final data = jsonDecode(response.body);
+        return MoodModel.fromJson(data);
+      } else {
+        throw Exception('Failed to add mood: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('Error adding mood: $e');
+      rethrow;
+    }
+  }
+
+  /// Get today's mood
   Future<MoodModel?> getTodayMood() async {
     try {
-      print('Fetching today\'s mood...');
-      final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
-      final moods = await getMoodLogs(today, today);
-      final todayMood = moods.isNotEmpty ? moods.last : null;
-      print('Today\'s mood: ${todayMood?.emoji ?? 'Not set'}');
-      return todayMood;
+      final now = DateTime.now();
+      final startOfDay = DateTime(now.year, now.month, now.day);
+      final endOfDay = DateTime(now.year, now.month, now.day, 23, 59, 59);
+
+      print('Fetching today\'s mood from $startOfDay to $endOfDay');
+
+      final response = await http.get(
+        Uri.parse('$baseUrl/moods?from=${startOfDay.toIso8601String()}&to=${endOfDay.toIso8601String()}'),
+        headers: await _getHeaders(),
+      );
+
+      print('Get today\'s mood response status: ${response.statusCode}');
+      print('Get today\'s mood response body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+
+        // The API returns an array of moods
+        if (data is List && data.isNotEmpty) {
+          // Get the most recent mood (last item in array)
+          return MoodModel.fromJson(data.last);
+        }
+
+        return null; // No mood recorded today
+      } else {
+        throw Exception('Failed to get today\'s mood: ${response.statusCode}');
+      }
     } catch (e) {
-      print('Get today mood error: $e');
+      print('Error getting today\'s mood: $e');
       return null;
     }
   }

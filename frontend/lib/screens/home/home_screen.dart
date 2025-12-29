@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../services/api_service.dart';
@@ -26,6 +28,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   UserModel? _user;
   StepsModel? _todaySteps;
+  MoodModel? _todayMood;
   String _motivationalQuote = '';
   int _screenTime = 0;
 
@@ -44,6 +47,7 @@ class _HomeScreenState extends State<HomeScreen> {
     UserModel profile = _dummyService.getDummyUser();
     String quote = _dummyService.getRandomQuote();
     int screenTime = _dummyService.getScreenTime();
+    MoodModel? mood;
 
     try {
       // Fetch real profile from backend
@@ -61,6 +65,10 @@ class _HomeScreenState extends State<HomeScreen> {
       quote = await _apiService.getRandomQuote();
       print('Quote fetched: $quote');
 
+      // Fetch today's mood from backend
+      mood = await _apiService.getTodayMood();
+      print('Today\'s mood fetched: ${mood?.emoji ?? "Not set"}');
+
       // Get screen time
       screenTime = await _screenTimeService.getTodayScreenTimeMinutes();
       if (screenTime <= 0) {
@@ -68,13 +76,15 @@ class _HomeScreenState extends State<HomeScreen> {
       }
       print('Screen time: $screenTime minutes');
     } catch (e) {
-      print('Error loading profile/quote/screenTime: $e');
-      // Will use dummy data already set above
+      print('Error loading profile/quote/mood/screenTime: $e');
+      // Use dummy mood if API call fails
+      mood = _dummyService.getTodayMood();
     }
 
     setState(() {
       _user = profile;
       _motivationalQuote = quote;
+      _todayMood = mood;
       _screenTime = screenTime;
     });
 
@@ -106,11 +116,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
       print('Health data fetched - Steps: $steps, Active Minutes: $activeMinutes');
 
-      // Changed: use goal instead of targetSteps
       final targetSteps = (_user?.goal ?? 10000);
 
       if (steps > 0) {
-        // We have device step data, sync it to backend
         final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
         print('Syncing $steps steps to backend for date: $today');
 
@@ -127,7 +135,6 @@ class _HomeScreenState extends State<HomeScreen> {
           );
           print('Steps synced successfully');
 
-          // Fetch updated steps from backend
           final updatedSteps = await _apiService.getTodaySteps();
           setState(() {
             _todaySteps = updatedSteps ??
@@ -143,7 +150,6 @@ class _HomeScreenState extends State<HomeScreen> {
           });
         } catch (e) {
           print('Error uploading steps to backend: $e');
-          // Use local device data as fallback
           setState(() {
             _todaySteps = StepsModel(
               date: DateTime.now(),
@@ -157,7 +163,6 @@ class _HomeScreenState extends State<HomeScreen> {
           });
         }
       } else {
-        // No device step data, try to fetch from backend
         print('No device steps, fetching from backend...');
         try {
           final backendSteps = await _apiService.getTodaySteps();
@@ -209,6 +214,8 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   String _getMoodBackground(String? moodLevel) {
+    if (moodLevel == null) return 'appIcons/neutral.jpg';
+
     switch (moodLevel) {
       case 'happy':
         return 'appIcons/happybg.jpg';
@@ -225,7 +232,9 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  String _getMoodIcon(String moodLevel) {
+  String _getMoodIcon(String? moodLevel) {
+    if (moodLevel == null) return 'appIcons/neutral.png';
+
     switch (moodLevel) {
       case 'happy':
         return 'appIcons/overjoyed.png';
@@ -253,11 +262,10 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     }
 
-    final todayMood = _dummyService.getTodayMood();
     final greeting = _getGreeting();
     final username = _user?.username ?? 'User';
     final steps = _todaySteps?.steps ?? 0;
-    final targetSteps = _todaySteps?.targetSteps ?? _user?.goal ?? 10000; // Changed
+    final targetSteps = _todaySteps?.targetSteps ?? _user?.goal ?? 10000;
     final percentage = _todaySteps?.percentage ?? ((steps / targetSteps) * 100).clamp(0, 100);
 
     return Scaffold(
@@ -281,7 +289,10 @@ class _HomeScreenState extends State<HomeScreen> {
                           radius: 25,
                           backgroundColor: Color(0xFFC16200),
                           backgroundImage: (_user?.photoUrl != null && _user!.photoUrl!.isNotEmpty)
-                              ? NetworkImage(_user!.photoUrl!) : null,
+                              ? (_user!.photoUrl!.startsWith('data:image')
+                                ? MemoryImage(base64Decode(_user!.photoUrl!.split(',')[1]))
+                                : NetworkImage(_user!.photoUrl!)) as ImageProvider
+                              : null,
                           child: (_user?.photoUrl == null || _user!.photoUrl!.isEmpty)
                               ? Text(
                             (_user?.username.isNotEmpty ?? false)
@@ -330,7 +341,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 SizedBox(height: 24),
                 Text('Current Mood', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                 SizedBox(height: 12),
-                _buildMoodCard(todayMood),
+                _buildMoodCard(_todayMood),
                 SizedBox(height: 24),
                 Text('Screen Time', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                 SizedBox(height: 12),
